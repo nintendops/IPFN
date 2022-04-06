@@ -1,0 +1,110 @@
+
+import vgtk
+
+parser = vgtk.HierarchyArgmentParser()
+
+# Experiment arguments
+exp_args = parser.add_parser("experiment")
+exp_args.add_argument('-n', '--experiment-id', type=str, default='debug',
+                      help='experiment id')
+exp_args.add_argument('--model-dir', type=str, default='trained_models')
+exp_args.add_argument('-s', '--seed', type=int, default=666,
+                      help='random seed')
+
+# Network arguments
+net_args = parser.add_parser("model")
+net_args.add_argument('-m', '--model', type=str, default='vanilla_mlp',
+                      help='type of generator model to use')
+net_args.add_argument('--modelD', type=str, default='vanilla_netD',
+                      help='type of discriminator model to use')
+net_args.add_argument('--image-res', type=int, default=64)
+net_args.add_argument('--global-res', type=float, default=0.25,help='use when predicting a global scale texture')
+net_args.add_argument('--source-scale', type=float, default=1.0, help='downsampling scale of input')
+net_args.add_argument('--patch-scale', type=float, default=0.5)
+net_args.add_argument('--image-dim', type=int, default=2)
+net_args.add_argument('--latent-dim', type=int, default=5)
+net_args.add_argument('--use-single', action='store_true')
+net_args.add_argument('--noise', type=str, default='stationary',
+                      help='type of noise added to the implicit field: const | perlin | stationary')
+net_args.add_argument('--noise-factor', type=float, default=1.0),
+net_args.add_argument('--noise-interpolation', type=str, default='gaussian',
+                      help='interpolation approach')
+net_args.add_argument('--octaves', type=int, default=2,
+                      help='octaves for multiscale training')
+net_args.add_argument('--feature-type', type=str, default='source')
+net_args.add_argument('--k-type', type=str, default='scale', help='scale | affine')
+net_args.add_argument('--k-threshold', type=float, default=-1)
+
+# parameters wrt nonstationary synethesis
+net_args.add_argument('--guidance-feature-type', type=str, default='mody')
+net_args.add_argument('--guidance-factor', type=float, default=-1)
+
+# Dataset arguments
+net_args = parser.add_parser("dataset")
+net_args.add_argument('-p', '--path', type=str, default='../datasets/leaf')
+net_args.add_argument('--repeat', type=int, default=5000)
+net_args.add_argument('--image-scale', type=float, default=1.0)
+net_args.add_argument('--sdf-scale', type=float, default=10.0)
+
+net_args = parser.add_parser("visdom")
+net_args.add_argument( '--display-id', type=int, default=1)
+net_args.add_argument( '--address', type=str, default="http://localhost")
+net_args.add_argument( '--port', type=int, default=8097)
+
+
+# Training arguments
+train_args = parser.add_parser("train")
+train_args.add_argument('--device', type=str, default='cuda')
+train_args.add_argument('--run-mode', type=str, default='train')
+train_args.add_argument('-e', '--num-epochs', type=int, default=100,
+                        help='maximum number of training epochs')
+train_args.add_argument('-i', '--num-iterations', type=int, default=None,
+                        help='maximum number of training iterations')
+train_args.add_argument('--critic-steps', type=int, default=5,
+                        help='steps to train discriminator per iteration')
+train_args.add_argument('--g-steps', type=int, default=5,
+                        help='steps to train generator per iteration')
+train_args.add_argument('-b', '--batch-size', type=int, default=8,
+                        help='batch size to train')
+train_args.add_argument('--num-thread', default=8, type=int,
+                        help='number of threads for loading data')
+train_args.add_argument('-r','--resume-path', type=str, default=None,
+                        help='Training using the pre-trained model')
+train_args.add_argument('-c','--coarse-path', type=str, default=None,
+                        help='Training using the pre-trained coarse model')
+train_args.add_argument('--save-freq', type=int, default=1,
+                        help='the frequency of saving the checkpoint (epochs)')
+train_args.add_argument('--log-freq', type=int, default=20,
+                        help='the frequency of logging training info (iters)')
+train_args.add_argument('--eval-freq', type=int, default=1,
+                        help='frequency of evaluation (epochs)')
+train_args.add_argument('--shift-type', type=str, default='xy', help='type of random shift applied in the training (x | y | xy | none)')
+train_args.add_argument('--fix-sample', action='store_true')
+
+train_args.add_argument('--sample-sigma', type=float, default=0.05)
+train_args.add_argument('--slice', action='store_true')
+
+# Learning rate arguments
+lr_args = parser.add_parser("train_lr")
+lr_args.add_argument('--init-lr', type=float, default=1e-4,
+                     help='the initial learning rate')
+lr_args.add_argument('--lr-type', type=str, default='exp_decay',
+                     help='learning rate schedule type: exp_decay | constant')
+lr_args.add_argument('--decay-rate', type=float, default=0.5,
+                     help='the rate of exponential learning rate decaying')
+lr_args.add_argument('--decay-step', type=int, default=1,
+                     help='the frequency of exponential learning rate decaying')
+
+# Loss funtion arguments
+loss_args = parser.add_parser("train_loss")
+loss_args.add_argument('--loss-type', type=str, default='soft',
+                       help='type of loss function')
+
+# Eval arguments
+eval_args = parser.add_parser("eval")
+
+# Test arguments
+test_args = parser.add_parser("test")
+
+opt = parser.parse_args()
+opt.mode = opt.run_mode
