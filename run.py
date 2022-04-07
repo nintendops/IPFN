@@ -5,13 +5,12 @@ import os
 import time
 import numpy as np
 import torch
-import vgtk
+from dataset import TextureImageDataset, Texture3dDataset, RGBDDataset 
 from core.trainer import BasicTrainer
 from core.loss import *
 import utils.helper as H
 import utils.io as io
 import utils.visualizer as V
-from dataset import TextureImageDataset, Texture3dDataset, RGBDDataset 
 from torch.autograd import Variable
 
 
@@ -56,8 +55,6 @@ class Trainer(BasicTrainer):
                                     lr=self.opt.train_lr.init_lr, betas=(0.5, 0.9))        
         self.optimizerD = optim.Adam(self.modelD.parameters(), 
                                     lr=self.opt.train_lr.init_lr, betas=(0.5, 0.9))
-        # self.lr_schedule = vgtk.LearningRateScheduler(self.optimizer,
-        #                                               **vars(self.opt.train_lr))
         self.logger.log('Setup', 'Optimizer all-set!')
 
 

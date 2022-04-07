@@ -23,7 +23,7 @@ class TextureImageDataset(Dataset):
         self.bs = opt.batch_size
         self.device = opt.device
         self.path_dir = Path(opt.dataset.path)
-        self.image_res = opt.model.image_res
+        # self.image_res = opt.model.image_res
         self.use_single = True # opt.dataset.use_single
         self.tmp_image = None
         self.samples = self.get_samples()
@@ -37,10 +37,10 @@ class TextureImageDataset(Dataset):
         self.default_w = int(w * opt.dataset.image_scale)
         self.default_h = int(h * opt.dataset.image_scale)
         
-        if opt.model.global_res <= 1.0:
-            self.global_res = int(opt.model.global_res * self.default_size)
+        if opt.model.crop_res <= 1.0:
+            self.crop_res = int(opt.model.crop_res * self.default_size)
         else:
-            self.global_res = int(opt.model.global_res)
+            self.crop_res = int(opt.model.crop_res)
 
         self.octaves = octaves
         self.scale_factor = scale_factor
@@ -60,65 +60,26 @@ class TextureImageDataset(Dataset):
                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
             ])
             self.transforms_crop = transforms.Compose([
-                transforms.RandomCrop(self.global_res),
+                transforms.RandomCrop(self.crop_res),
             ])
         elif transform_type == 'default':
             self.transforms = transforms.Compose([
                 transforms.ToPILImage(),
                 transforms.Resize([self.default_h,self.default_w]),
-                transforms.RandomCrop(self.global_res),
+                transforms.RandomCrop(self.crop_res),
                 # transforms.RandomHorizontalFlip(p=0.5),
                 # transforms.RandomVerticalFlip(p=0.5),
                 transforms.ToTensor(),
                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
             ])
-        elif transform_type == 'bottleneck':
-            self.transforms = transforms.Compose([
-                transforms.ToPILImage(),
-                transforms.Resize([self.default_h,self.default_w]),
-                # transforms.CenterCrop(self.default_size),
-                transforms.RandomCrop(self.global_res),
-                # transforms.RandomHorizontalFlip(p=0.5),
-                # transforms.RandomVerticalFlip(p=0.5),
-                transforms.ToTensor(),
-                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-            ])
-
-        elif transform_type == 'multiscale':
-            self.transforms = []
-            # from smallest scale to largest
-            for i in range(self.octaves):
-                # resize = int(self.default_size * (scale_factor**(octaves-1-i)))
-                resize = int(self.default_size * self.scale_factor**(self.octaves - i - 1))
-                T = transforms.Compose([
-                    transforms.ToPILImage(),
-                    transforms.Resize([self.default_h,self.default_w]),
-                    transforms.RandomCrop(self.default_size),
-                    transforms.Resize([resize,resize]),
-                    transforms.RandomCrop(self.image_res),
-                    transforms.ToTensor(),
-                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-                ])
-                self.transforms.append(T)
-
-        self.transform_ref = transforms.Compose([
-            transforms.ToPILImage(),
-            transforms.Resize([self.default_h,self.default_w]),             
-            transforms.RandomCrop(self.global_res),
-            transforms.GaussianBlur(7),
-            transforms.GaussianBlur(7),
-            transforms.GaussianBlur(7),
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-        ])
 
         self.transform_type = transform_type
 
     def crop(self, x):
-        top = np.random.randint(0,self.default_h - self.global_res,1)[0] if self.default_h > self.global_res else 0
-        left = np.random.randint(0,self.default_w - self.global_res,1)[0] if self.default_w > self.global_res else 0
-        x = transforms.functional.crop(x, top, left, self.global_res, self.global_res)
-        x = transforms.functional.resize(x, [self.image_res, self.image_res])
+        top = np.random.randint(0,self.default_h - self.crop_res,1)[0] if self.default_h > self.crop_res else 0
+        left = np.random.randint(0,self.default_w - self.crop_res,1)[0] if self.default_w > self.crop_res else 0
+        x = transforms.functional.crop(x, top, left, self.crop_res, self.crop_res)
+        # x = transforms.functional.resize(x, [self.image_res, self.image_res])
         return x, torch.from_numpy(np.array([top,left], dtype=np.float32))
 
     def weighted_crop(self, x, upscale_factor=4):
@@ -136,15 +97,8 @@ class TextureImageDataset(Dataset):
 
         left = np.random.randint(0, upscale_factor * (self.default_w - self.global_res),1)[0] if self.default_w > self.global_res else 0
         
-        # if self.default_w <= self.global_res:
-        #     left = 0
-        # elif sign_l == 0:
-        #     left = int((1 - exp_distribution(left, self.sample_sigma))* (self.default_w - self.global_res) / 2)
-        # else:
-        #     left = int(exp_distribution(left, self.sample_sigma)*(self.default_w - self.global_res))
-
         x = transforms.functional.crop(x, top, left, upscale_factor * self.global_res, upscale_factor * self.global_res)
-        x = transforms.functional.resize(x, [self.image_res, self.image_res])
+        # x = transforms.functional.resize(x, [self.image_res, self.image_res])
         return x, torch.from_numpy(np.array([top/upscale_factor,left/upscale_factor], dtype=np.float32))
 
 

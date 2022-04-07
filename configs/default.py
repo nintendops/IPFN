@@ -1,47 +1,52 @@
+import argparse
+import os
+from core.app import HierarchyArgmentParser
 
-import vgtk
 
-parser = vgtk.HierarchyArgmentParser()
+parser = HierarchyArgmentParser()
 
 # Experiment arguments
 exp_args = parser.add_parser("experiment")
 exp_args.add_argument('-n', '--experiment-id', type=str, default='debug',
                       help='experiment id')
-exp_args.add_argument('--model-dir', type=str, default='trained_models')
+exp_args.add_argument('--model-dir', type=str, default='trained_models'. help="where to save trained model")
 exp_args.add_argument('-s', '--seed', type=int, default=666,
                       help='random seed')
 
 # Network arguments
 net_args = parser.add_parser("model")
-net_args.add_argument('-m', '--model', type=str, default='vanilla_mlp',
-                      help='type of generator model to use')
-net_args.add_argument('--modelD', type=str, default='vanilla_netD',
-                      help='type of discriminator model to use')
-net_args.add_argument('--image-res', type=int, default=64)
-net_args.add_argument('--global-res', type=float, default=0.25,help='use when predicting a global scale texture')
-net_args.add_argument('--source-scale', type=float, default=1.0, help='downsampling scale of input')
-net_args.add_argument('--patch-scale', type=float, default=0.5)
-net_args.add_argument('--image-dim', type=int, default=2)
+# net_args.add_argument('-m', '--model', type=str, default='vanilla_mlp',
+#                       help='type of generator model to use')
+# net_args.add_argument('--modelD', type=str, default='vanilla_netD',
+#                       help='type of discriminator model to use')
+
+# net_args.add_argument('--image-res', type=int, default=128)
+net_args.add_argument('--crop-res', type=float, default=128,help='either a scale or an integer, defining the size of the cropped patches')
+net_args.add_argument('--source-scale', type=float, default=1.0, help='downsampling scale of the input')
+# net_args.add_argument('--patch-scale', type=float, default=0.5)
+
+net_args.add_argument('--channel-dim', type=int, default=3, help='number of channels in the input image')
 net_args.add_argument('--latent-dim', type=int, default=5)
-net_args.add_argument('--use-single', action='store_true')
+# net_args.add_argument('--use-single', action='store_true')
 net_args.add_argument('--noise', type=str, default='stationary',
-                      help='type of noise added to the implicit field: const | perlin | stationary')
+                      help='type of noise added to the implicit field: const | stationary')
 net_args.add_argument('--noise-factor', type=float, default=1.0),
 net_args.add_argument('--noise-interpolation', type=str, default='gaussian',
                       help='interpolation approach')
-net_args.add_argument('--octaves', type=int, default=2,
-                      help='octaves for multiscale training')
-net_args.add_argument('--feature-type', type=str, default='source')
-net_args.add_argument('--k-type', type=str, default='scale', help='scale | affine')
-net_args.add_argument('--k-threshold', type=float, default=-1)
+net_args.add_argument('--guidance-feature-type', type=str, default='none', help="type of guidance features used in conditional training: none | x | y | custom")
+
+# net_args.add_argument('--octaves', type=int, default=2,
+#                       help='octaves for multiscale training')
+# net_args.add_argument('--feature-type', type=str, default='source')
+# net_args.add_argument('--k-type', type=str, default='scale', help='scale | affine')
+# net_args.add_argument('--k-threshold', type=float, default=-1)
 
 # parameters wrt nonstationary synethesis
-net_args.add_argument('--guidance-feature-type', type=str, default='mody')
-net_args.add_argument('--guidance-factor', type=float, default=-1)
+# net_args.add_argument('--guidance-factor', type=float, default=-1)
 
 # Dataset arguments
 net_args = parser.add_parser("dataset")
-net_args.add_argument('-p', '--path', type=str, default='../datasets/leaf')
+net_args.add_argument('-p', '--path', type=str, default='../datasets/honeycomb')
 net_args.add_argument('--repeat', type=int, default=5000)
 net_args.add_argument('--image-scale', type=float, default=1.0)
 net_args.add_argument('--sdf-scale', type=float, default=10.0)

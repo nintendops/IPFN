@@ -1,23 +1,23 @@
 from configs.default import opt
 from importlib import import_module
 from tqdm import tqdm
+import app
 import os
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import vgtk
 import utils.helper as H
 import utils.io as io
 import utils.visualizer as V
 from dataset import TextureImageDataset
 
-class BasicTrainer(vgtk.Trainer):
+
+class BasicTrainer(app.Trainer):
     def __init__(self, opt):
         super(BasicTrainer, self).__init__(opt)
         self.epoch_counter = 0
         self.iter_counter = 0
-
         self._setup_visualizer()
 
     def _setup_datasets(self):
@@ -195,7 +195,7 @@ class ImageTrainer(BasicTrainer):
                                     lr=self.opt.train_lr.init_lr, betas=(0.5, 0.9))
         self.optimizerD = optim.Adam(self.modelD.parameters(),
                                     lr=self.opt.train_lr.init_lr, betas=(0.5, 0.9))
-        # self.lr_schedule = vgtk.LearningRateScheduler(self.optimizer,
+        # self.lr_schedule = app.LearningRateScheduler(self.optimizer,
         #                                               **vars(self.opt.train_lr))
         self.logger.log('Setup', 'Optimizer all-set!')
 
