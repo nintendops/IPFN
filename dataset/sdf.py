@@ -14,15 +14,14 @@ class SDFDataset(Dataset):
     def __init__(self, opt):
         super(SDFDataset, self).__init__()
         self.opt = opt
+        self.channel_dim = 1 if self.opt.model.channel_dim <= 1 else self.opt.model.channel_dim
         self.dataset_mode = opt.run_mode
         self.bs = opt.batch_size
         self.device = opt.device
         self.sdf_files = glob.glob(os.path.join(opt.dataset.path,'*.npy'))
 
         assert len(self.sdf_files) > 0
-
-        if len(self.sdf_files) < 1000:
-            self.sdf_files *= opt.dataset.repeat
+        self.sdf_files *= opt.dataset.repeat
 
         sample = np.load(self.sdf_files[0])
         if sample.ndim == 2:
@@ -35,8 +34,8 @@ class SDFDataset(Dataset):
         else:
             raise ValueError(f"Expected sample to have dim 2 or 4, but got {sample.shape}")
 
-        if self.opt.model.global_res < 1.0:
-            sample_interval = int(1/self.opt.model.global_res)
+        if self.opt.model.crop_res < 1.0:
+            sample_interval = int(1/self.opt.model.crop_res)
             sample = sample.reshape(-1,self.res, self.res, self.res)
             sample = sample[:,::sample_interval,::sample_interval,::sample_interval]
             self.original_res = self.res
@@ -44,15 +43,21 @@ class SDFDataset(Dataset):
             # self.interval = sample_interval
         else:
             self.original_res = self.res
-            self.res = int(self.opt.model.global_res)
+            self.res = int(self.opt.model.crop_res)
 
         if self.opt.model.source_scale < 1.0:
             sample_interval = int(1/self.opt.model.source_scale)
-            # sample = sample.reshape(-1,self.res, self.res, self.res)
-            # sample = sample[:,::sample_interval,::sample_interval,::sample_interval]
+            sample = sample.reshape(-1,self.res, self.res, self.res)
+            sample = sample[:,::sample_interval,::sample_interval,::sample_interval]
             self.interval = sample_interval
         else:
             self.interval = 1.0
+
+    def _get_original_size(self):
+        return self.original_res
+
+    def _get_cropped_size(self):
+        return self.res
             
     def __len__(self):
         return len(self.sdf_files)
@@ -61,11 +66,11 @@ class SDFDataset(Dataset):
         sdf_data = np.load(self.sdf_files[idx])
 
         if sdf_data.ndim == 2:
-            sdfv = sdf_data[:,-1]
-            sdfv = sdfv.reshape(1, self.original_res, self.original_res, self.original_res)
+            sdfv = sdf_data[:,-1] if self.channel_dim == 1 else sdf_data 
+            sdfv = sdfv.reshape(self.channel_dim, self.original_res, self.original_res, self.original_res)
         else:
-            sdfv = sdf_data[:,:,:,-1] if sdf_data.ndim == 4 else sdf_data
-            sdfv = sdfv.reshape(1, *sdfv.shape)
+            # sdfv = sdf_data[:,:,:,-1] if sdf_data.ndim == 4 else sdf_data
+            sdfv = sdfv.reshape(self.channel_dim, *sdfv.shape)
         
         sdf_data = torch.from_numpy(sdfv) * self.opt.dataset.sdf_scale
         sdf_data = torch.clamp(sdf_data,-1.0,1.0)
@@ -73,7 +78,7 @@ class SDFDataset(Dataset):
         if self.opt.model.source_scale < 1.0:
             sdf_data = sdf_data[:, ::self.interval,::self.interval,::self.interval]
 
-        return self._random_crop(sdf_data)
+        return self._random_crop(sdf_data), sdf_data, None
 
     def _random_crop(self,sdf):
         if self.original_res == self.res:
@@ -84,9 +89,7 @@ class SDFDataset(Dataset):
         dx, dy, dz = np.random.randint(0,global_res - self.res - 1,3)
 
         if self.opt.shift_type == 'xy':
-            # sdf = sdf[:,dx:dx + self.res, dy:dy+self.res, nz//2 - self.res//2 : nz//2 + self.res //2]
             sdf = sdf[:,dx:dx + self.res, dy:dy+self.res, -self.res:]
-
         else:
             sdf = sdf[:,dx:dx + self.res, dy:dy+self.res, dz:dz + self.res]
 
@@ -95,7 +98,7 @@ class SDFDataset(Dataset):
 
 class FoamLoader(Dataset):
     '''
-        A very particularly specific loader for the foam sdf shape
+        A particularly specific loader for the foam sdf shape
     '''
     def __init__(self, opt):
         super(FoamLoader, self).__init__()
@@ -145,44 +148,5 @@ class FoamLoader(Dataset):
         # Expected guidance value range centers at 0.25 and mostly fall between 0.0-0.6
         gv = np.abs(footprint).sum()
         gv = np.clip((gv - g_min) / (g_max - g_min), 0.0, 1.0) 
-        return sdf_slice.reshape(1,self.res,self.res,self.res), torch.full([1,self.res,self.res,self.res], gv)
-        # return sdf_slice.reshape(1,self.res,self.res), torch.full([1,self.res,self.res], gv)
-
-
-class FoamLoader_v2(Dataset):
-    '''
-        A very particularly specific loader for the foam sdf shape
-    '''
-    def __init__(self, opt):
-        super(FoamLoader_v2, self).__init__()
-        self.opt = opt
-        self.dataset_mode = opt.run_mode
-        self.bs = opt.batch_size
-        self.device = opt.device
-        self.sdf_files = glob.glob(os.path.join(opt.dataset.path,"*.npy"))
-
-        # Assume to be [16,16,128]       
-        self.res = 32 #16 # 32
-
-
-    def __len__(self):
-        return len(self.sdf_files) * 10
-
-    def __getitem__(self, idx):
-        kernel_size = self.res
-        g_min = 6.0 # 1.0 # 6.0  
-        g_max = 10.0 # 4.2 # 10.0 
-        z_slice = 32
-        interval = z_slice // self.res
-        sdf = np.load(self.sdf_files[idx // 10])
-        sdf_slice = sdf[:,:,-z_slice:]
-        if interval > 1:
-            sdf_slice = sdf_slice[:,:,::interval]
-        sdf_slice = torch.from_numpy(sdf_slice)
-        sdf_slice = torch.clamp(sdf_slice * self.opt.dataset.sdf_scale, -1.0, 1.0)
-        footprint = sdf[:,:,90]
-        # Expected guidance value range centers at 0.25 and mostly fall between 0.0-0.6
-        gv = np.abs(footprint).sum()
-        gv = np.clip((gv - g_min) / (g_max - g_min), 0.0, 1.0) 
-        return sdf_slice.reshape(1,self.res,self.res,self.res), torch.full([1,self.res,self.res,self.res], gv)
+        return sdf_slice.reshape(1,self.res,self.res,self.res), None, torch.full([1,self.res,self.res,self.res], gv)
 

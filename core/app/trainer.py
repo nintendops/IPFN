@@ -54,6 +54,8 @@ class Trainer():
         os.makedirs(self.ckpt_dir, exist_ok=True)
         self.logger.log('Setup', f'Checkpoint dir created!')
 
+        self._initialize_settings()
+        
         # build dataset
         self._setup_datasets()
 
@@ -137,6 +139,9 @@ class Trainer():
 
     def epoch_step(self):
         raise NotImplementedError('Not implemented')
+
+    def _initialize_settings(self):
+        pass
 
     def _setup_datasets(self):
         self.logger.log('Setup', 'Setup datasets!')

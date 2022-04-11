@@ -20,7 +20,7 @@ class Trainer(BasicTrainer):
         self.dataset_iter = iter(self.dataset)
         self.summary.register(['LossD', 'LossG', 'kscale_x','kscale_y','Gradient Norm'])        
         self.dist_shift = H.get_distribution_type([self.opt.batch_size, self.opt.model.image_dim], 'uniform')
-        self.scale_factor = 8.0 #self.opt.dataset.crop_size / self.opt.model.global_res # self.opt.model.image_res
+        self.scale_factor = self.opt.dataset.crop_size / self.opt.model.global_res # self.opt.model.image_res
 
         print(f"[MODEL] choosing a scale factor of {self.scale_factor}!!!")
         print(f"[MODEL] Patch original resolution at {self.opt.model.global_res}, which is downsampled to {self.opt.model.image_res}!!!")
@@ -81,7 +81,6 @@ class Trainer(BasicTrainer):
                 if hasattr(self, 'losses'):
                     counter_ratio = self.opt.critic_steps * self.iter_counter / self.n_iters 
                     self.vis.plot_current_losses(self.epoch_counter, counter_ratio, self.losses)
-
 
 
     def _optimize(self):

@@ -15,19 +15,20 @@ exp_args.add_argument('-s', '--seed', type=int, default=666,
 
 # Network arguments
 net_args = parser.add_parser("model")
+net_args.add_argument('--input-type', type=str, default='2d',help=' 2d | 3d, which corresponds to either an image or a volume')
+
 # net_args.add_argument('-m', '--model', type=str, default='vanilla_mlp',
 #                       help='type of generator model to use')
 # net_args.add_argument('--modelD', type=str, default='vanilla_netD',
 #                       help='type of discriminator model to use')
-
 # net_args.add_argument('--image-res', type=int, default=128)
-net_args.add_argument('--crop-res', type=float, default=128,help='either a scale or an integer, defining the size of the cropped patches')
-net_args.add_argument('--source-scale', type=float, default=1.0, help='downsampling scale of the input')
-# net_args.add_argument('--patch-scale', type=float, default=0.5)
-
-net_args.add_argument('--channel-dim', type=int, default=3, help='number of channels in the input image')
-net_args.add_argument('--latent-dim', type=int, default=5)
 # net_args.add_argument('--use-single', action='store_true')
+
+net_args.add_argument('--crop-res', type=float, default=128, help='either a scale or an integer, defining the size of the cropped patches')
+net_args.add_argument('--source-scale', type=float, default=1.0, help='downsampling scale of the input')
+
+net_args.add_argument('--channel-dim', type=int, default=-1, help='number of channels in the input image (image default to 3, volume default to 1')
+net_args.add_argument('--latent-dim', type=int, default=5)
 net_args.add_argument('--noise', type=str, default='stationary',
                       help='type of noise added to the implicit field: const | stationary')
 net_args.add_argument('--noise-factor', type=float, default=1.0),
@@ -85,7 +86,6 @@ train_args.add_argument('--eval-freq', type=int, default=1,
                         help='frequency of evaluation (epochs)')
 train_args.add_argument('--shift-type', type=str, default='xy', help='type of random shift applied in the training (x | y | xy | none)')
 train_args.add_argument('--fix-sample', action='store_true')
-
 train_args.add_argument('--sample-sigma', type=float, default=0.05)
 train_args.add_argument('--slice', action='store_true')
 
