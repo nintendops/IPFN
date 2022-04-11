@@ -84,7 +84,8 @@ train_args.add_argument('--log-freq', type=int, default=20,
                         help='the frequency of logging training info (iters)')
 train_args.add_argument('--eval-freq', type=int, default=1,
                         help='frequency of evaluation (epochs)')
-train_args.add_argument('--shift-type', type=str, default='xy', help='type of random shift applied in the training (x | y | xy | none)')
+train_args.add_argument('--shift-type', type=str, default='default', help='type of random shift applied in the training (x | y | xy | default | none)')
+train_args.add_argument('--shift-factor', type=float, default=4.0, help="scale of the random shift applied in training"),
 train_args.add_argument('--fix-sample', action='store_true')
 train_args.add_argument('--sample-sigma', type=float, default=0.05)
 train_args.add_argument('--slice', action='store_true')

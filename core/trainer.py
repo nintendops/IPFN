@@ -20,6 +20,7 @@ class BasicTrainer(app.Trainer):
         self._setup_visualizer()
 
     def _initialize_settings(self):        
+        self._initialize_guidance_function()
         if self.opt.model.input_type == '2d':
             self.input_dim = 2
             self.modelG = 'vanilla_mlp'
@@ -35,7 +36,7 @@ class BasicTrainer(app.Trainer):
         self.epoch_counter = 0
         self.iter_counter = 0
 
-    def _get_guidance_function(self):
+    def _initialize_guidance_function(self):
         if self.opt.guidance_feature_type == 'custom':
             self.guidance = GU.CustomGuidanceMapping()
         elif self.opt.guidance_feature_type == 'x':
@@ -44,6 +45,7 @@ class BasicTrainer(app.Trainer):
             self.guidance = GU.ModYMapping()
         else:
             self.guidance = None
+        self.ifconditional = self.guidance is not None:
 
     def _get_summary(self):
         return ['LossD', 'LossG', 'Gradient Norm']        
@@ -76,6 +78,10 @@ class BasicTrainer(app.Trainer):
         self.scale_factor = self._get_scale_factor()
         self.dist_shift = self._get_dist_shift()
 
+        # settings for conditional model
+        if self.ifconditional:
+            self.opt.shift_factor = self.scale_factor   
+
         self.dataest_size = len(dataset)
         self.n_iters = self.dataest_size / self.opt.batch_size
         self.dataset = torch.utils.data.DataLoader( dataset, \
@@ -83,7 +89,6 @@ class BasicTrainer(app.Trainer):
 	                                                shuffle=False, \
 	                                                num_workers=self.opt.num_thread)
         self.dastaset_iter = iter(self.dataset)
-
 
         print(f"[Dataset] choosing a scale factor of {self.scale_factor}!!!")
         print(f"[Dataset] Input original size at {self.original_size}, which is cropped to {self.original_size / self.scale_factor}!!!")
@@ -216,7 +221,7 @@ class BasicTrainer(app.Trainer):
             #              size=[self.opt.model.image_res,self.opt.model.image_res], mode='bilinear')
 
             # conditional model
-            if self.guidance is not None:
+            if self.ifconditional:
                 guidance_real = self.guidance.compute(data_patch, gu, self.size_info)
                 data_patch = torch.cat([data_patch, guidance_real.to(self.opt.device)], 1)
 
@@ -226,10 +231,17 @@ class BasicTrainer(app.Trainer):
             D_real.backward()
 
             # fake data
-            g_in = self._get_input(scale=scale)
+            g_in = H._get_input(self.crop_size, self.dist_shift, self.opt)
+            if self.ifconditional:
+                guidance_fake = self.guidance.compute(None, g_in, [0,self.scale_factor,self.scale_factor])
+                g_in = torch.cat([g_in, guidance_fake.to(self.opt.device)],1)
+
             fake, _ = self.modelG(g_in, noise_factor=self.opt.model.noise_factor)
-            fake_data = fake.to(self.opt.device)
-            fake_data = Variable(fake_data.data)
+
+            if self.ifconditional:
+                fake = torch.cat([fake, guidance_fake.to(self.opt.device)],1)
+
+            fake_data = Variable(fake.data)
             D_fake = self.modelD(fake_data).mean()
             D_fake.backward()
 
@@ -244,45 +256,46 @@ class BasicTrainer(app.Trainer):
 
         for i in range(self.opt.g_steps):
             self.modelG.zero_grad()
-            # p_recon, z = self.modelG(self._get_input(scale=scale), noise_factor=self.opt.model.noise_factor)
             p_recon, z = self.modelG(g_in, noise_factor=self.opt.model.noise_factor, fix_sample=self.opt.fix_sample)
-            fake_data = p_recon
+            fake_data = p_recon if self.guidance is None else torch.cat([p_recon, guidance_fake.to(self.opt.device)], 1)
             G_cost = self.modelD(fake_data)
             G_cost = -G_cost.mean()
             G_cost.backward()
             self.optimizerG.step()
 
-        kx = self.modelG.K[1].item() if 'conv' not in self.opt.model.model else 1.0
-        ky = self.modelG.K[0].item() if 'conv' not in self.opt.model.model else 1.0
-
         log_info = {
                 'LossG': G_cost.item(),
                 'LossD': D_cost.item(),
-                'kscale_x' : kx,
-                'kscale_y' : ky,
                 'Gradient Norm': gradient_norm,
         }
 
         self.summary.update(log_info)
 
-        # visuals
-        if self.iter_counter % self.opt.log_freq == 0:
+        # visualization (only applicable in 2D cases or can be modified to visualize slices of the 3D volume)
+        if self.opt.model.input_type == '2d' and self.iter_counter % self.opt.log_freq == 0:
             self.model.eval()
             with torch.no_grad():
-                global_recon, global_z = self.modelG(\
-                    self._get_input(scale=self.scale_factor, \
-                                    no_shift=True, \
-                                    up_factor=self.scale_factor), \
-                    noise_factor=self.opt.model.noise_factor)
+                # eval: synthesize a larger texture (4x scale)
+                if self.ifconditional:
+                    g_in = H._get_input(self.crop_size, self.dist_shift, self.opt, scale=self.scale_factor, shift=0.0)
+                    guidance_fake = self.guidance.compute(None, g_in, [0,self.scale_factor,self.scale_factor])
+                    g_in = torch.cat([g_in, guidance_fake.to(self.opt.device)],1)
+                else:
+                    g_in = H._get_input(self.crop_size, self.dist_shift, self.opt, scale=4.0)
+                global_recon, global_z = self.modelG(g_in, noise_factor=self.opt.model.noise_factor)
             self.model.train()
 
-            self.visuals = {'train_patch': V.tensor_to_visual(img_patch[:,:3]),\
-                            'train_ref': V.tensor_to_visual(img_ref[:,:3]), 
+            self.visuals = {'train_patch': V.tensor_to_visual(data_patch[:,:3]),\
+                            'train_ref': V.tensor_to_visual(data_ref[:,:3]), 
                             'train_patch_recon': V.tensor_to_visual(p_recon[:,:3]), 
                             'train_global_recon': V.tensor_to_visual(global_recon[:,:3]),     
                             'noise_visual': V.tensor_to_visual(z[:,:3]),
                             'global_noise': V.tensor_to_visual(global_z[:,:3]),                        
             }
+
+            if self.ifconditional:
+                self.visuals['guidance_real'] = V.tensor_to_visual(guidance_real)
+                self.visuals['guidance_fake'] = V.tensor_to_visual(guidance_fake)
 
             self.losses = {                
                     'LossG': G_cost.item(),

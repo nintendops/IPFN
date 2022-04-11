@@ -103,6 +103,49 @@ def positional_encoding(x, l=5, beta=None):
     x = torch.cat((torch.sin(x).unsqueeze(2), torch.cos(x).unsqueeze(2)),2)
     return x.reshape(bs,-1,*res)
 
+
+def get_input(self, res, dist_shift, opt, scale=1.0, shift=None):
+    
+    # sample a grid of coordinates
+    if opt.model.input_type == '2d':
+        size = (int(res), int(res))    
+        coords = get_position( size, 2, opt.device, opt.batch_size)
+    elif opt.model.input_type == '3d':
+        size = (int(res), int(res), int(res))    
+        coords = get_position_3d( size, opt.device, opt.batch_size)
+    else:
+        raise NotImplementedError(f"Unknown input type {opt.model.input_type}")
+
+    # if no shift applied
+    if opt.shift_type == 'none':
+        return scale * coords
+    
+    # if manually specified shift
+    if shift is not None:
+        return scale * coords + shift
+
+    # if randomly applying shift
+    if opt.model.input_type == '2d':
+        shift = dist_shift.sample()[...,None,None]
+        shift = shift.expand(opt.batch_size, 2, res, res).contiguous().to(opt.device)
+    else:
+        shift = dist_shift.sample()[...,None,None,None]
+        shift = shift.expand(opt.batch_size, 3, res, res, res).contiguous().to(opt.device)
+
+    # further maneuvering of how shifts are applied
+    padding = torch.zeros_like(shift[:,0]).to(opt.device)
+    if opt.shift_type == 'y':
+        shift = torch.stack([shift[:,0], padding, padding],1)
+    elif opt.shift_type == 'x':
+        shift = torch.stack([padding, shift[:,1], padding],1)
+    elif opt.shift_type = 'xy':
+        shift = torch.stack([shift[:,0], shift[:,1], padding],1)
+    if opt.model.input_type == '2d':
+        shift = shift[:,:2]
+
+    return scale * coords + opt.shift_factor * shift
+
+
 def dir_from_tlc(d, res, batch_size, device):
     grid_shift = get_position([res,res],2,device,batch_size).transpose(2,3)
     topleftcorner = grid_shift[:,:,0,0].unsqueeze(-1).unsqueeze(-1)

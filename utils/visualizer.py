@@ -6,19 +6,6 @@ from subprocess import Popen, PIPE
 
 #################### visdom function #############################################
 
-def tensor_to_visual(img, normalize=False):
-    signed_to_unsigned = lambda x : (x + 1) / 2
-
-    img = img[0].detach().cpu().numpy()
-    if img.min() < 0:
-        img = signed_to_unsigned(img)
-    # img = (img - img.min()) / (img.max() - img.min())    
-    if normalize:
-        img = (img - img.min()) / (img.max() - img.min() + 1e-4)
-
-    img = np.clip(img,0.0,1.0)
-    return img
-
 class Visualizer():
     def __init__(self, opt):    
         """Initialize the Visualizer class
@@ -136,6 +123,19 @@ class Visualizer():
 
 
 ########################################################################################
+
+def tensor_to_visual(img, normalize=False):
+    signed_to_unsigned = lambda x : (x + 1) / 2
+    img = img[0].detach().cpu().numpy()
+    if img.min() < 0:
+        img = signed_to_unsigned(img)
+    # img = (img - img.min()) / (img.max() - img.min())    
+    if normalize:
+        img = (img - img.min()) / (img.max() - img.min() + 1e-4)
+    img = np.clip(img,0.0,1.0)
+    return img
+
+
 def get_checkerboard(size):
     a = np.arange(size)
     x, y = np.meshgrid(a, a)
