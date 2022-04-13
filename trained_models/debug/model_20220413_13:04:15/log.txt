@@ -1,5 +1,0 @@
-#22-04-13 13:04:15# [Setup] Logger created! Hello World!
-#22-04-13 13:04:15# [Setup] Random seed has been set to 666
-#22-04-13 13:04:15# [Setup] Experiment id: debug
-#22-04-13 13:04:15# [Setup] Model id: model_20220413_13:04:15
-#22-04-13 13:04:15# [Setup] Checkpoint dir created!

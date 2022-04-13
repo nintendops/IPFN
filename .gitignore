@@ -1,9 +1,8 @@
 baseline/
-datasets/
-ITFN/trained_models/
-ITFN/experiment.sh
-ITFN/log/
-ITFN/vis/
+trained_models/
+experiment.sh
+log/
+vis/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
