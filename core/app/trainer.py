@@ -11,9 +11,6 @@ import torch.optim as optim
 import core.app as app
 
 
-# TODO add dataparallel
-# TODO add the_world = ipdb.set_trace
-
 class Trainer():
     def __init__(self, opt):
         super(Trainer, self).__init__()

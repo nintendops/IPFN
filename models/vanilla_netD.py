@@ -4,19 +4,15 @@ import torch
 import core.network_blocks as M
 import utils.helper as H
 
-def build_model_from(opt, outfile_path=None, c_in=None):
+def build_model_from(opt, outfile_path=None):
     device = opt.device
 
-    if c_in is None:
-        if hasattr(opt.model, 'condition_on_lr'):
-            c_in = 6
-        elif hasattr(opt.model, 'condition_on_guidance'):
-            if opt.model.guidance_feature_type == 'modx' or opt.model.guidance_feature_type == 'mody':
-                c_in = 4
-            else:
-                c_in = 5
-        else:
-            c_in = 3
+    if opt.model.guidance_feature_type != 'none':
+        g_in = opt.model.guidance_channel
+    else:
+        g_in = 0
+
+    c_in = opt.model.channel_dim + g_in
 
     model_param = {
         'n_features' : 64,
@@ -27,5 +23,4 @@ def build_model_from(opt, outfile_path=None, c_in=None):
     }
 
     model = M.netD_v1(model_param).to(device)
-
     return model

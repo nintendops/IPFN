@@ -16,17 +16,8 @@ exp_args.add_argument('-s', '--seed', type=int, default=666,
 # Network arguments
 net_args = parser.add_parser("model")
 net_args.add_argument('--input-type', type=str, default='2d',help=' 2d | 3d, which corresponds to either an image or a volume')
-
-# net_args.add_argument('-m', '--model', type=str, default='vanilla_mlp',
-#                       help='type of generator model to use')
-# net_args.add_argument('--modelD', type=str, default='vanilla_netD',
-#                       help='type of discriminator model to use')
-# net_args.add_argument('--image-res', type=int, default=128)
-# net_args.add_argument('--use-single', action='store_true')
-
 net_args.add_argument('--crop-res', type=float, default=128, help='either a scale or an integer, defining the size of the cropped patches')
 net_args.add_argument('--source-scale', type=float, default=1.0, help='downsampling scale of the input')
-
 net_args.add_argument('--channel-dim', type=int, default=-1, help='number of channels in the input image (image default to 3, volume default to 1')
 net_args.add_argument('--latent-dim', type=int, default=5)
 net_args.add_argument('--noise', type=str, default='stationary',
@@ -35,27 +26,21 @@ net_args.add_argument('--noise-factor', type=float, default=1.0),
 net_args.add_argument('--noise-interpolation', type=str, default='gaussian',
                       help='interpolation approach')
 net_args.add_argument('--guidance-feature-type', type=str, default='none', help="type of guidance features used in conditional training: none | x | y | custom")
-
-# net_args.add_argument('--octaves', type=int, default=2,
-#                       help='octaves for multiscale training')
-# net_args.add_argument('--feature-type', type=str, default='source')
-# net_args.add_argument('--k-type', type=str, default='scale', help='scale | affine')
-# net_args.add_argument('--k-threshold', type=float, default=-1)
-
-# parameters wrt nonstationary synethesis
-# net_args.add_argument('--guidance-factor', type=float, default=-1)
+net_args.add_argument('--sigma', type=float, default=0.2, help='sigma for latent field interpolation')
+net_args.add_argument('--k-type', type=str, default='scale', help='scale | affine')
+net_args.add_argument('--k-threshold', type=float, default=-1)
 
 # Dataset arguments
-net_args = parser.add_parser("dataset")
-net_args.add_argument('-p', '--path', type=str, default='../datasets/honeycomb')
-net_args.add_argument('--repeat', type=int, default=5000)
-net_args.add_argument('--image-scale', type=float, default=1.0)
-net_args.add_argument('--sdf-scale', type=float, default=10.0)
+dataset_args = parser.add_parser("dataset")
+dataset_args.add_argument('-p', '--path', type=str, default='../datasets/honeycomb')
+dataset_args.add_argument('--repeat', type=int, default=5000)
+dataset_args.add_argument('--image-scale', type=float, default=1.0)
+dataset_args.add_argument('--sdf-scale', type=float, default=10.0)
 
-net_args = parser.add_parser("visdom")
-net_args.add_argument( '--display-id', type=int, default=1)
-net_args.add_argument( '--address', type=str, default="http://localhost")
-net_args.add_argument( '--port', type=int, default=8097)
+visdom_args = parser.add_parser("visdom")
+visdom_args.add_argument( '--display-id', type=int, default=1)
+visdom_args.add_argument( '--address', type=str, default="http://localhost")
+visdom_args.add_argument( '--port', type=int, default=8097)
 
 
 # Training arguments
@@ -87,7 +72,6 @@ train_args.add_argument('--eval-freq', type=int, default=1,
 train_args.add_argument('--shift-type', type=str, default='default', help='type of random shift applied in the training (x | y | xy | default | none)')
 train_args.add_argument('--shift-factor', type=float, default=4.0, help="scale of the random shift applied in training"),
 train_args.add_argument('--fix-sample', action='store_true')
-train_args.add_argument('--sample-sigma', type=float, default=0.05)
 train_args.add_argument('--slice', action='store_true')
 
 # Learning rate arguments
@@ -108,6 +92,7 @@ loss_args.add_argument('--loss-type', type=str, default='soft',
 
 # Eval arguments
 eval_args = parser.add_parser("eval")
+eval_args.add_argument('--test-scale', type=float, default=4.0, help="scale for the synthesized pattern during inference")
 
 # Test arguments
 test_args = parser.add_parser("test")

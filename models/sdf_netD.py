@@ -4,11 +4,15 @@ import torch
 import core.network_blocks as M
 import utils.helper as H
 
-def build_model_from(opt, outfile_path=None, c_in=None):
+def build_model_from(opt, outfile_path=None):
     device = opt.device
 
-    if c_in is None:
-        c_in = 1
+    if opt.model.guidance_feature_type != 'none':
+        g_in = opt.model.guidance_channel
+    else:
+        g_in = 0
+
+    c_in = opt.model.channel_dim + g_in
 
     model_param = {
         'n_features' : 64,

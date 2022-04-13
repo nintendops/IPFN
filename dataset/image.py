@@ -27,7 +27,6 @@ class TextureImageDataset(Dataset):
         self.path_dir = Path(opt.dataset.path)
         self.use_single = True # opt.dataset.use_single
         self.samples = self.get_samples()
-        self.sample_sigma = opt.sample_sigma
         self.dataset_length = len(self.samples)
         
         filepath = self.samples[0]

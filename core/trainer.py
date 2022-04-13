@@ -1,8 +1,6 @@
-from configs.default import opt
-from importlib import import_module
-from tqdm import tqdm
 import app
 import os
+import time
 import numpy as np
 import torch
 import torch.nn as nn
@@ -11,8 +9,12 @@ import utils.helper as H
 import utils.io as io
 import utils.visualizer as V
 import utils.guidance as GU
+from configs.default import opt
+from importlib import import_module
+from tqdm import tqdm
+from torch.autograd import Variable
+from core.loss import *
 from dataset import TextureImageDataset, SDFDataset
-
 
 class BasicTrainer(app.Trainer):
     def __init__(self, opt):
@@ -22,11 +24,9 @@ class BasicTrainer(app.Trainer):
     def _initialize_settings(self):        
         self._initialize_guidance_function()
         if self.opt.model.input_type == '2d':
-            self.input_dim = 2
             self.modelG = 'vanilla_mlp'
             self.modelD = 'vanilla_netD'
         elif self.opt.model.input_type == '3d':
-            self.input_dim = 3
             self.modelG = 'sdf_mlp'
             self.modelD = 'sdf_netD'
         else:
@@ -45,7 +45,9 @@ class BasicTrainer(app.Trainer):
             self.guidance = GU.ModYMapping()
         else:
             self.guidance = None
-        self.ifconditional = self.guidance is not None:
+        self.ifconditional = self.guidance is not None
+        if self.ifconditional:
+            self.opt.model.guidance_channel = self.guidance._get_channel()
 
     def _get_summary(self):
         return ['LossD', 'LossG', 'Gradient Norm']        
@@ -65,15 +67,14 @@ class BasicTrainer(app.Trainer):
         return 1 / self.opt.model.crop_res if self.opt.model.crop_res <= 1.0 else size / self.opt.model.crop_res
 
     def _get_dist_shift(self):
-        return H.get_distribution_type([self.opt.batch_size, self.input_dim], 'uniform')
-
+        return H.get_distribution_type([self.opt.batch_size, self.opt.model.image_dim], 'uniform')
 
     def _setup_datasets(self):
         dataset = self._get_dataset()
 
         # size info of the input exemplar
         self.original_size = dataset._get_original_size()
-        self.cropped_size = dataset._get_cropped_size()
+        self.crop_size = dataset._get_cropped_size()
         self.size_info = list(self.cropped_size) + list(self.original_size)
         self.scale_factor = self._get_scale_factor()
         self.dist_shift = self._get_dist_shift()
@@ -277,12 +278,13 @@ class BasicTrainer(app.Trainer):
             with torch.no_grad():
                 # eval: synthesize a larger texture (4x scale)
                 if self.ifconditional:
-                    g_in = H._get_input(self.crop_size, self.dist_shift, self.opt, scale=self.scale_factor, shift=0.0)
+                    g_in = H._get_input(self.crop_size * self.scale_factor, self.dist_shift, self.opt, scale=self.scale_factor, shift=0.0)
                     guidance_fake = self.guidance.compute(None, g_in, [0,self.scale_factor,self.scale_factor])
                     g_in = torch.cat([g_in, guidance_fake.to(self.opt.device)],1)
                 else:
-                    g_in = H._get_input(self.crop_size, self.dist_shift, self.opt, scale=4.0)
+                    g_in = H._get_input(self.crop_size * 4.0, self.dist_shift, self.opt, scale=4.0)
                 global_recon, global_z = self.modelG(g_in, noise_factor=self.opt.model.noise_factor)
+
             self.model.train()
 
             self.visuals = {'train_patch': V.tensor_to_visual(data_patch[:,:3]),\
@@ -339,128 +341,102 @@ class BasicTrainer(app.Trainer):
         self._optimize(data)
         self.iter_counter += 1
 
-    def _get_input(self):
-        pass
-
     def _print_running_stats(self, step):
         stats = self.summary.get()
         self.logger.log('Training', f'{step}: {stats}')
         # self.summary.reset(['Loss', 'Pos', 'Neg', 'Acc', 'InvAcc'])
 
-    def test(self):
-        pass
+    def _synthesize(self, res, scale=1.0, shift=0.0):
+        if self.ifconditional:
+            g_in = H._get_input(res, self.dist_shift, self.opt, scale=scale, shift=shift)
+            guidance_fake = self.guidance.compute(None, g_in, [0,scale,scale])
+            g_in = torch.cat([g_in, guidance_fake.to(self.opt.device)],1)
+        else:
+            g_in = H._get_input(res, self.dist_shift, self.opt, scale=scale, shift=shift)
+            guidance_fake = None
+        global_recon, global_z = self.modelG(g_in, noise_factor=self.opt.model.noise_factor)
+        return global_recon, global_z, guidance_fake
+
 
     def eval(self):
-        pass
+        self.logger.log('Testing','Evaluating test set!')        
+        self.model.eval()
+
+        '''
+        Eval options: 
+            - Synthesize test: synthesize enlarged samples of the pattern
+            - Zoom out test: create gif of a zooming out views of the pattern
+            - Panning test: create gif of a moving views of the pattern
+
+        '''
+        # save path
+        image_path = os.path.join(os.path.dirname(self.root_dir), 'visuals')
+        os.makedirs(image_path,exist_ok=True)
+        self.logger.log('Testing', f"Saving output to {image_path}!!!")
+
+        with torch.no_grad():
+
+            self.crop_size *= self.opt.test_scale
+            self.scale_factor = self.opt.test_scale
+
+            countdown = 5
+            for i in range(countdown):
+                self.vis.yell(f"Getting ready to test! Start in {5-i}...")
+                time.sleep(1)
+            
+            
+            self.vis.yell(f"Random synthesized pattern at {scale}X size!")
+            sample = 10
+
+            for i in range(sample):
+
+                if self.ifconditional:
+                    g_in = H._get_input(self.crop_size, self.dist_shift, self.opt, scale=self.scale_factor, shift=0.0)
+                    guidance_fake = self.guidance.compute(None, g_in, [0,self.scale_factor,self.scale_factor])
+                    g_in = torch.cat([g_in, guidance_fake.to(self.opt.device)],1)
+                else:
+                    g_in = H._get_input(self.crop_size, self.dist_shift, self.opt, scale=self.scale_factor)
+                recon, z = self.modelG(g_in, noise_factor=self.opt.model.noise_factor)
 
 
-# class ImageTrainer(BasicTrainer):
-#     def __init__(self, opt):
-#         super(ImageTrainer, self).__init__(opt)
-#         self.dataset_iter = iter(self.dataset)
-#         self.summary.register(['LossD', 'LossG', 'kscale_x','kscale_y','Gradient Norm'])
-#         self.dist_shift = H.get_distribution_type([self.opt.batch_size, self.opt.model.image_dim], 'uniform')
-#         self.scale_factor = self.opt.dataset.crop_size / self.opt.model.global_res
-#         print(f"[MODEL] choosing a scale factor of {self.scale_factor}!!!")
-#         print(f"[MODEL] Patch original resolution at {self.opt.model.global_res}, which is downsampled to {self.opt.model.image_res}!!!")
+                self.visuals = {
+                                'generated image': V.tensor_to_visual(recon),\
+                                'noise_visual': V.tensor_to_visual(z[:,:3]),
+                                'guidance': V.tensor_to_visual(guidance_fake),
+                }
+                self.vis.display_current_results(self.visuals)
+                
+                filename = f"sample_idx{i}.png"
+                io.write_images(os.path.join(image_path,filename),V.tensor_to_visual(recon),1)
+                time.sleep(1)
 
-#     def _setup_datasets(self):
-#         '''
-#         In this version of multiscale training, the generator generates at a single large scale, while the discriminator disriminates at multiple scale
-#         '''
-#         dataset = TextureImageDataset(self.opt, octaves=1, transform_type=self.opt.dataset.transform_type)
-#         self.opt.dataset.crop_size = dataset.default_size
-#         self.opt.model.global_res = dataset.global_res
-#         self.source_w = dataset.default_w
-#         self.source_h = dataset.default_h
-#         self.opt.source_w = self.source_w
-#         self.opt.source_h = self.source_h
-#         self.dataest_size = len(dataset)
-#         self.n_iters = self.dataest_size / self.opt.batch_size
-#         self.dataset = torch.utils.data.DataLoader( dataset, \
-#                                                     batch_size=self.opt.batch_size, \
-#                                                     shuffle=False, \
-#                                                     num_workers=self.opt.num_thread)
+            # self.vis.yell(f"zomming test!")
+            # for i in np.arange(0.5, 2, 0.001):
+            #     recon = self.modelG(self._get_input(scale=i), True)
+            #     self.visuals = {
+            #                     'Zooming test': V.tensor_to_visual(recon),\
+            #     }
+            #     self.vis.display_current_results(self.visuals,10)
+                
 
-#     def _setup_optim(self):
-#         self.logger.log('Setup', 'Setup optimizer!')
-#         # torch.autograd.set_detect_anomaly(True)
-#         self.optimizerG = optim.Adam(self.modelG.parameters(),
-#                                     lr=self.opt.train_lr.init_lr, betas=(0.5, 0.9))
-#         self.optimizerD = optim.Adam(self.modelD.parameters(),
-#                                     lr=self.opt.train_lr.init_lr, betas=(0.5, 0.9))
-#         # self.lr_schedule = app.LearningRateScheduler(self.optimizer,
-#         #                                               **vars(self.opt.train_lr))
-#         self.logger.log('Setup', 'Optimizer all-set!')
-
-
-#     def _setup_metric(self):
-#         self.metric = None
-#         # self.l1_loss = get_loss_type('l1')
-
-#     def train_epoch(self):
-#         while self.epoch_counter <= self.opt.num_epochs:
-#             try:
-#                 self._optimize()
-#                 self.iter_counter += 1
-#             except StopIteration:
-#                 self.epoch_counter += 1
-#                 self.iter_counter = 0
-#                 self.dataset_iter = iter(self.dataset)
-#                 if self.epoch_counter > 0 and self.epoch_counter % self.opt.save_freq == 0:
-#                     self._save_network(f'Epoch{self.epoch_counter}')
-
-#             if self.iter_counter % self.opt.log_freq == 0:
-#                 self._print_running_stats(f'Epoch {self.epoch_counter}')
-#                 if hasattr(self, 'visuals'):
-#                     self.vis.display_current_results(self.visuals)
-#                 if hasattr(self, 'losses'):
-#                     counter_ratio = self.opt.critic_steps * self.iter_counter / self.n_iters
-#                     self.vis.plot_current_losses(self.epoch_counter, counter_ratio, self.losses)
-#                 # self.vis.yell(f"Top value is {self.top.item()}, Left value is {self.left.item()}...")
-
-
-#     def mod_coords(self, coords):
-#         gr = self.opt.model.global_res
-#         h = self.source_h
-#         w = self.source_w
-
-#         gf = self.opt.model.guidance_factor
-#         if gf > 0:
-#             gf = gf * gr / h if self.opt.model.guidance_feature_type == 'mody' else gf * gr / w
-
-#         if self.opt.model.guidance_feature_type == 'mody':
-#             coords_y = coords[:,0]
-#             if gf > 0:
-#                 mod_y = torch.floor(gf * coords_y) / gf
-#                 mod_y = torch.clamp(mod_y, - h/gr, h/gr) / (h/gr)
-#             else:
-#                 mod_y = torch.clamp(coords_y / (h/gr), -1.0, 1.0)
-
-#             mod_y = (mod_y + 1)/2
-#             return mod_y.unsqueeze(1)
-#         elif self.opt.model.guidance_feature_type == 'modx':
-#             coords_x = coords[:,1]
-#             if gf > 0:
-#                 mod_x = torch.floor(gf * coords_x) / gf
-#                 mod_x = torch.clamp(mod_x, - w/gr, w/gr) / (w/gr)
-#             else:
-#                 mod_x = torch.clamp(coords_x / (w/gr), -1.0, 1.0)
-#             mod_x = (mod_x + 1)/2
-#             return mod_x.unsqueeze(1)
-#         elif self.opt.model.guidance_feature_type == 'modxy':
-#             coords = torch.clamp(coords / (self.opt.dataset.crop_size/gr), -1.0, 1.0)
-#             coords = (coords + 1) / 2
-#             return coords
-
-#     def _image_coords_to_spatial_coords(self, crop_pos):
-#         coords = H.get_position([self.opt.model.image_res, self.opt.model.image_res], self.opt.model.image_dim, \
-#                                      self.opt.device, self.opt.batch_size)
-#         gr = self.opt.model.global_res
-#         h = self.source_h
-#         w = self.source_w
-#         top_coord = (h - 2 * crop_pos[:,0]) / gr
-#         left_coord = (2 * crop_pos[:,1] - w) / gr
-#         coords_shift = torch.stack([1 - top_coord, left_coord + 1],1)
-#         coords = coords + coords_shift[...,None,None].to(self.opt.device)
-#         return coords
+            self.vis.yell(f"panning test!")
+            for i in np.arange(-8, 8, 0.005):
+                shift = torch.from_numpy(np.array([0,i],dtype=np.float32)[None,:,None,None]).to(self.opt.device)
+                
+                coords, guidance = self._get_input(shift=shift, scale=self.scale_factor*scale,up_factor=self.scale_factor)
+                recon, z = self.modelG(torch.cat([coords,guidance],1), noise_factor=self.opt.model.noise_factor, fix_sample=True)
+                
+                self.visuals = {
+                                'Panning test': V.tensor_to_visual(recon),\
+                                'noise_visual': V.tensor_to_visual(z[:,:3]),
+                }
+                self.vis.display_current_results(self.visuals,11)
+                
+            # for i in np.arange(-3, 3, 0.01):
+            #     shift = torch.from_numpy(np.array([i,3],dtype=np.float32)[None,:,None,None]).to(self.opt.device)
+            #     recon = self.modelG(self._get_input(shift=shift), True)
+            #     self.visuals = {
+            #                     'Panning test': V.tensor_to_visual(recon),\
+            #     }
+            #    self.vis.display_current_results(self.visuals,11)
+                

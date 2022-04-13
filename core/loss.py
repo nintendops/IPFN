@@ -107,28 +107,3 @@ def gram_matrix(x):
     gram_matrix = torch.bmm(features, features.transpose(1, 2))
     gram_matrix.div_(h * w)
     return gram_matrix
-
-
-# infoGAN related loss
-class NormalNLLLoss:
-    """
-    Calculate the negative log likelihood
-    of normal distribution.
-    This needs to be minimised.
-    Treating Q(cj | x) as a factored Gaussian.
-    """
-    def __call__(self, x, mu, var):
-        logli = -0.5 * (var.mul(2 * np.pi) + 1e-6).log() - (x - mu).pow(2).div(var.mul(2.0) + 1e-6)
-        nll = -(logli.sum(1).mean())
-        return nll
-
-def get_loss_type(type):
-    if type == 'mse':
-        return torch.nn.MSELoss()
-    elif type == 'l1':
-        return torch.nn.L1Loss()
-    elif type == 'normal':
-        return NormalNLLLoss()
-    else:
-        raise NotImplementedError
-

@@ -9,29 +9,12 @@ class transformer_block(nn.Module):
         super(transformer_block, self).__init__()
         K = torch.eye(dim) * initial_scale
         self.register_parameter('K',nn.Parameter(K))
-        self.threshold = 1.5
 
     def forward(self, x):
-        # self.K = (1 + torch.tanh(self.K * 0.55)) * 0.5 * self.threshold
         x = x.permute([0,2,3,1]) @ self.K
         x = x.permute([0,3,1,2]).contiguous()
         return x
 
-class transformer_guided_block(nn.Module):
-    def __init__(self, dim=2, initial_scale=1.0):
-        super(transformer_guided_block, self).__init__()
-        self.block = Conv2dBlock(1, dim**2,1,1,0)
-        self.threshold = 1.5
-        self.dim = dim
-
-    def forward(self, x, guidance):
-        # nb, 4, w, h -> nb, w, h, 2, 2
-        nb, _, w, h = guidance.shape
-        T = self.block(guidance).permute([0,2,3,1]).reshape(nb,w,h,self.dim, self.dim)
-        x = x.permute([0,2,3,1]).contiguous()
-        x = torch.einsum('bijk,bijkl->bijl',x,T)
-        x = x.permute([0,3,1,2]).contiguous()
-        return x
 
 # mlp generator
 class netG_mlp_v1(nn.Module):
@@ -193,57 +176,6 @@ class netG_mlp_ns(nn.Module):
         x = torch.cat([x, g_feat, g],1)
         return self.generator(x)
 
-class netG_mlp_coupling(nn.Module):
-    def __init__(self, param):
-        super(netG_mlp_coupling, self).__init__()
-        self.param = param
-
-        ###### params##############
-        n_feautres = param['n_features']
-        nf_in = param['c_in']
-        ng_in = param['g_in']
-        nf_out = param['c_out']
-        non_linearity = param['non_linearity']
-        bn = param['bn']
-        # dropout = param['dropout_ratio']
-        ##########################
-        self.nf_in = nf_in
-        self.ng_out = n_feautres[0]
-
-        self.blocks = nn.ModuleList()
-        # self.coupling_block = Conv2dBlock(ng_in, nf_in*self.ng_out,1,1,0,bn,non_linearity)
-        self.coupling_block = nn.Sequential(nn.Linear(ng_in, nf_in*self.ng_out),
-                                            nn.ReLU())
-        self.norm = nn.InstanceNorm2d(self.ng_out)
-
-        c = self.ng_out
-        for idx, c_out in enumerate(n_feautres):
-            block_i = Conv2dBlock(c, c_out, 1, 1, 0, bn, non_linearity)
-            self.blocks.append(block_i)
-            c = c_out
-
-        self.last_conv = Conv2dBlock(c, nf_out, 1, 1, 0, None, None)
-        self.blocks.append(self.last_conv)
-        self.tanh = nn.Tanh()
-
-    def forward(self, x, g):
-        # nb, _, h, w = g.shape
-        nb, nz = g.shape
-
-        kernel = self.coupling_block(g).reshape(nb,self.nf_in,self.ng_out).contiguous()
-        # kernel = self.coupling_block(g).permute([0,2,3,1]).reshape(nb,h,w,self.nf_in,self.ng_out).contiguous()
-        x = x.permute([0,2,3,1]).contiguous()
-
-        # nb, h, w, nf_in @ nb, h, w, nf_in, ng_out -> nb, h, w, ng_out
-        x = torch.einsum('bijk,bkl->bijl', x, kernel).permute([0,3,1,2]).contiguous()
-        x = self.norm(x)
-        x = F.relu(x, inplace=True)
-
-        for idx, block in enumerate(self.blocks):
-            x = block(x)
-        x = self.tanh(x)
-        return x
-
 # discriminator
 class netD_v1(nn.Module):
     def __init__(self, param):
@@ -288,59 +220,6 @@ class netD_v1(nn.Module):
         x = self.linear(x)
         return x
 
-class netD_v2(nn.Module):
-    '''
-        patch-based descriminator: only descriminate at patch level
-    '''
-    def __init__(self, param):
-        super(netD_v2, self).__init__()
-        self.param = param
-        ###### params##############
-        dim = param['n_features']
-        nf_in = param['c_in']
-        n_layer = param['n_layer']
-        non_linearity = param['non_linearity']        
-        res = param['res']
-
-        blocks = []
-        c_in = nf_in
-        factor = 1
-        for i in range(n_layer):
-            c_out = min(factor * dim, 256)    
-            if i < n_layer - 1:
-                blocks.append(nn.Conv2d(c_in,c_out,3,2,1))
-                blocks.append(nn.LeakyReLU(inplace=True))
-            else:
-                blocks.append(nn.Conv2d(c_in,1,1,1,0))
-            factor *= 2
-            c_in = c_out
-        
-        self.blocks = nn.Sequential(*blocks)
-
-        # blocks = nn.Sequential(
-        #     nn.Conv2d(nf_in, dim, 3, 2, 1),
-        #     nn.LeakyReLU(inplace=True),
-        #     nn.Conv2d(dim, 2 * dim, 3, 2, 1),   
-        #     nn.LeakyReLU(inplace=True),
-        #     nn.Conv2d(2 * dim, 4 * dim, 3, 2, 1),   
-        #     nn.LeakyReLU(inplace=True),
-        #     nn.Conv2d(4 * dim, 8 * dim, 3, 2, 1),
-        #     nn.LeakyReLU(inplace=True),
-        #     nn.Conv2d(8 * dim, 1, 1, 1, 0),
-        # )
-        # self.blocks = blocks
-        
-    def forward(self, x):
-        bs, nc, w, h = x.shape
-        for idx, block in enumerate(self.blocks):
-            x = block(x)
-        #     print(x.shape)
-        # print(f"----- output critic score size -----")
-        # print(x.shape)
-        # import ipdb; ipdb.set_trace()
-        return x.reshape(bs,-1).mean(-1)
-
-
 class netD_3d(nn.Module):
     def __init__(self, param):
         super(netD_3d, self).__init__()
@@ -377,86 +256,6 @@ class netD_3d(nn.Module):
         x = x.view(bs,-1)
         x = self.linear(x)
         return x
-
-class netD_global(nn.Module):
-    def __init__(self, param):
-        super(netD_global, self).__init__()
-        self.param = param
-        ###### params##############
-        dim = param['n_features']
-        nf_in = param['c_in']
-        # nf_out = param['c_out']
-        non_linearity = param['non_linearity']        
-        res = param['res']
-        kernel_size = 4
-        ##########################
-        # should not contain batchnorm
-        # blocks = nn.Sequential(
-        #     Conv2dBlock(nf_in, dim, 3, 2, 1, norm_type=None, activation_type=non_linearity, bias=False),
-        #     Conv2dBlock(dim, 2 * dim, 3, 2, 1, norm_type=None, activation_type=non_linearity, bias=False),        
-        #     Conv2dBlock(2 * dim, 4 * dim, 3, 2, 1, norm_type=None, activation_type=non_linearity, bias=False),
-        # )
-        blocks = nn.Sequential(
-            nn.Conv2d(nf_in, dim, kernel_size, 2, 1),
-            nn.LeakyReLU(inplace=True),
-            nn.Conv2d(dim, 2 * dim, kernel_size, 2, 1),   
-            nn.LeakyReLU(inplace=True),
-            nn.Conv2d(2 * dim, 4 * dim, kernel_size, 2, 1),
-            nn.LeakyReLU(inplace=True),
-        )
-        self.blocks = blocks
-        n_conv = 3
-        c_in = int(4 * dim * res * res / 4**n_conv)
-        self.linear = nn.Linear(c_in, 1)
-
-    def forward(self, x):
-        bs, nc, w, h = x.shape
-        for idx, block in enumerate(self.blocks):
-            x = block(x)
-            # print(f"----- NetD layer {idx} -----")
-            # print(x.shape)
-
-        x = x.view(bs,-1)
-        x = self.linear(x)
-        return x
-
-class encoder_v1(nn.Module):
-    def __init__(self, param):
-        super(encoder_v1, self).__init__()
-        self.param = param
-        ###### params##############
-        dim = param['n_features']
-        nf_in = param['c_in']
-        nf_out = param['nz']
-        non_linearity = param['non_linearity']        
-        bn = param['bn']
-        n_residual = param['n_residual']
-
-        # downscaling network 
-        blocks = nn.Sequential(
-            Conv2dBlock(nf_in, dim, 4, 2, 1, bn, non_linearity),
-            Conv2dBlock(dim, 2*dim, 4, 2, 1, bn, non_linearity),  
-            Conv2dBlock(2*dim, 4*dim, 4, 2, 1, bn, non_linearity),
-        )
-        self.blocks = blocks
-
-        # residual network
-        residual_blocks = []
-        for i in range(n_residual):
-            residual_blocks += [ResnetBlock(4*dim)]
-        self.residual_blocks = nn.Sequential(*residual_blocks)
-        self.final_block = Conv2dBlock(4*dim, nf_out, 1, 1, 0, bn, non_linearity)
-        
-    def forward(self, x):
-        bs, nc, w, h = x.shape
-        for idx, block in enumerate(self.blocks):
-            x = block(x)
-        x = self.residual_blocks(x)        
-        x = self.final_block(x)        
-        # print(f"----- output critic score size -----")
-        # print(x.shape)
-        return x
-
 
 class ResnetBlock(nn.Module):
     """ A single Res-Block module """
@@ -540,78 +339,3 @@ class VGGFeatures(torch.nn.Module):
             return feats
         else:
             return feats[feature_index]
-
-# infoGAN related structures
-
-
-class DHead(nn.Module):
-    def __init__(self, c_in):
-        super().__init__()
-        self.linear = nn.Linear(c_in, 1)
-
-    def forward(self, x):
-        output = self.linear(x)
-        return output
-
-class QHead(nn.Module):
-    def __init__(self, c_in, nz):
-        super().__init__()
-
-        self.conv1 = nn.Linear(c_in, 128, bias=False)        
-        # self.conv_disc = nn.Conv2d(128, 10, 1)
-        self.conv_mu = nn.Linear(128, nz)
-        self.conv_var = nn.Linear(128, nz)
-
-    def forward(self, x):
-        x = F.leaky_relu(self.conv1(x), 0.1, inplace=True)
-        # disc_logits = self.conv_disc(x).squeeze()
-        mu = self.conv_mu(x)
-        var = torch.exp(self.conv_var(x))
-        return mu, var
-
-class netD_infoGAN(nn.Module):
-    def __init__(self, param):
-        super(netD_infoGAN, self).__init__()
-        self.param = param
-        ###### params##############
-        dim = param['n_features']
-        nf_in = param['c_in']
-        # nf_out = param['c_out']
-        nz = param['nz']
-        non_linearity = param['non_linearity']        
-        res = param['res']
-        kernel_size = 4
-        ##########################
-        # should not contain batchnorm
-        # blocks = nn.Sequential(
-        #     Conv2dBlock(nf_in, dim, 3, 2, 1, norm_type=None, activation_type=non_linearity, bias=False),
-        #     Conv2dBlock(dim, 2 * dim, 3, 2, 1, norm_type=None, activation_type=non_linearity, bias=False),        
-        #     Conv2dBlock(2 * dim, 4 * dim, 3, 2, 1, norm_type=None, activation_type=non_linearity, bias=False),
-        # )
-        blocks = nn.Sequential(
-            nn.Conv2d(nf_in, dim, kernel_size, 2, 1),
-            nn.LeakyReLU(inplace=True),
-            nn.Conv2d(dim, 2 * dim, kernel_size, 2, 1),   
-            nn.LeakyReLU(inplace=True),
-            nn.Conv2d(2 * dim, 4 * dim, kernel_size, 2, 1),
-            nn.LeakyReLU(inplace=True),
-            nn.Conv2d(4 * dim, 8 * dim, kernel_size, 2, 1),
-            nn.LeakyReLU(inplace=True),
-        )
-        self.blocks = blocks
-        n_conv = 4
-        c_in = int(8 * dim * res * res / 4**n_conv)
-        self.netD = DHead(c_in)
-        self.netQ = QHead(c_in, nz)
-
-    def forward(self, x):
-        bs, nc, w, h = x.shape
-        for idx, block in enumerate(self.blocks):
-            x = block(x)
-            # print(f"----- NetD layer {idx} -----")
-            # print(x.shape)
-        x = x.view(bs,-1)
-        critic_score = self.netD(x)
-        mu, var = self.netQ(x)
-        return critic_score, mu, var
- 

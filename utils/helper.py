@@ -154,7 +154,7 @@ def dir_from_tlc(d, res, batch_size, device):
     grid_dir = grid_offset / torch.norm(grid_offset, dim=1, keepdim=True)
     return grid_dir
 
-################## function for generating a certain noise ######################
+################## functions for generating latent noise field ######################
 def batched_index_select_2d(index, feature):
     batch_size, image_dim, res1, res2 = index.shape
     _, f_dim, grid_dim, _ = feature.shape
@@ -167,34 +167,6 @@ def batched_index_select_2d(index, feature):
     xyz_select = torch.cat([select(x,idx) for x,idx in zip(feature, indexf2)], dim=0)
     return xyz_select
 
-# def stationary_noise(positions, feature, sigma=0.2):
-#     # index-select from features
-    
-#     offset = feature.shape[2] // 2
-#     # pmin = torch.floor(positions[0].min()).long() # if pmin is None else math.floor(pmin)
-#     # pmax = torch.floor(positions.max())
-#     # assert pmax - pmin < feature.shape[2]
-#     index_1 = torch.clamp(torch.floor(positions).long() + offset, 0, feature.shape[2]-1)
-#     index_2 = torch.clamp(index_1 + 1, 0, feature.shape[2]-1)
-#     index_3 = torch.clamp(torch.cat([index_1[:,0].unsqueeze(1) + 1, index_1[:,1].unsqueeze(1)],1), 0, feature.shape[2]-1)
-#     index_4 = torch.clamp(torch.cat([index_1[:,0].unsqueeze(1), index_1[:,1].unsqueeze(1)+1],1), 0, feature.shape[2]-1)
-
-#     f_grouped = torch.cat([batched_index_select_2d(index, feature)[...,None] \
-#                         for index in [index_1,index_2,index_3,index_4]],dim=4)
-#     # distance to corners
-#     px = positions[:,0]
-#     py = positions[:,1]
-#     s1 = (px - torch.floor(px))**2
-#     s2 = (py - torch.floor(py))**2
-#     s3 = (torch.floor(px) + 1 - px)**2
-#     s4 = (torch.floor(py) + 1 - py)**2
-#     dist1 = torch.sqrt(s1 + s2)[...,None]
-#     dist2 = torch.sqrt(s3 + s4)[...,None]
-#     dist3 = torch.sqrt(s3 + s2)[...,None]
-#     dist4 = torch.sqrt(s1 + s4)[...,None]
-#     dists = torch.cat([dist1,dist2,dist3,dist4], 3)
-#     dists = torch.nn.functional.softmax(-dists/sigma, -1).unsqueeze(1)
-#     return torch.sum(dists * f_grouped, -1)
 
 def stationary_noise_1d(positions, feature, mode='gaussian',sigma=0.2):
     '''
