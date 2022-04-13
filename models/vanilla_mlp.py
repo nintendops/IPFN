@@ -39,6 +39,7 @@ class ImplicitGenerator(nn.Module):
 
         # TODO: set size of the latent field dynamically to make model more efficient
         self.noise_dim = 32 # 16, 8
+        self.warp_noise = opt.model.warp_noise
 
         if self.k_type == 'scale':
             K = torch.zeros(self.dim) + param['k_initial_scale']
@@ -104,6 +105,9 @@ class ImplicitGenerator(nn.Module):
                 # z_sample = torch.zeros_like(z_sample).to(self.device)
             z_sample = z_sample.to(self.device)
             self.z_sample = z_sample
+
+        if self.warp_noise:
+            position = x
 
         if self.noise == 'const':
             z = z_sample[...,None,None].expand(nb,self.nz,h,w).contiguous()

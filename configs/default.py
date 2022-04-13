@@ -28,6 +28,7 @@ net_args.add_argument('--guidance-feature-type', type=str, default='none', help=
 net_args.add_argument('--sigma', type=float, default=0.2, help='sigma for latent field interpolation')
 net_args.add_argument('--k-type', type=str, default='scale', help='scale | affine')
 net_args.add_argument('--k-threshold', type=float, default=-1)
+net_args.add_argument('--warp-noise', action='store_true')
 
 # Dataset arguments
 dataset_args = parser.add_parser("dataset")
