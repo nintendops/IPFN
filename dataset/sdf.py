@@ -54,7 +54,7 @@ class SDFDataset(Dataset):
             self.interval = 1.0
 
     def _get_original_size(self):
-        return self.original_res
+        return [self.original_res]
 
     def _get_cropped_size(self):
         return self.res

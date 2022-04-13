@@ -1,0 +1,59 @@
+{
+  "experiment_id": "debug",
+  "model_dir": "trained_models",
+  "seed": 666,
+  "model": {
+    "input_type": "2d",
+    "crop_res": 128,
+    "source_scale": 1.0,
+    "channel_dim": 3,
+    "latent_dim": 5,
+    "noise": "stationary",
+    "noise_factor": 1.0,
+    "noise_interpolation": "gaussian",
+    "guidance_feature_type": "none",
+    "sigma": 0.2,
+    "k_type": "scale",
+    "k_threshold": -1,
+    "image_dim": 2
+  },
+  "dataset": {
+    "path": "exemplars/images/honeycombed_0003.jpg",
+    "repeat": 5000,
+    "image_scale": 1.0,
+    "sdf_scale": 10.0
+  },
+  "visdom": {
+    "display_id": 1,
+    "address": "http://localhost",
+    "port": 8097
+  },
+  "device": "cuda",
+  "run_mode": "train",
+  "num_epochs": 100,
+  "num_iterations": null,
+  "critic_steps": 5,
+  "g_steps": 5,
+  "batch_size": 8,
+  "num_thread": 8,
+  "resume_path": null,
+  "coarse_path": null,
+  "save_freq": 1,
+  "log_freq": 20,
+  "eval_freq": 1,
+  "shift_type": "default",
+  "shift_factor": 4.0,
+  "fix_sample": false,
+  "slice": false,
+  "train_lr": {
+    "init_lr": 0.0001,
+    "lr_type": "exp_decay",
+    "decay_rate": 0.5,
+    "decay_step": 1
+  },
+  "train_loss": {
+    "loss_type": "soft"
+  },
+  "test_scale": 4.0,
+  "mode": "train"
+}

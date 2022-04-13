@@ -104,14 +104,16 @@ def positional_encoding(x, l=5, beta=None):
     return x.reshape(bs,-1,*res)
 
 
-def get_input(self, res, dist_shift, opt, scale=1.0, shift=None):
+def _get_input(res, dist_shift, opt, scale=1.0, shift=None):
     
+    res = int(res)
+
     # sample a grid of coordinates
     if opt.model.input_type == '2d':
-        size = (int(res), int(res))    
+        size = (res, res)    
         coords = get_position( size, 2, opt.device, opt.batch_size)
     elif opt.model.input_type == '3d':
-        size = (int(res), int(res), int(res))    
+        size = (res, res, res)    
         coords = get_position_3d( size, opt.device, opt.batch_size)
     else:
         raise NotImplementedError(f"Unknown input type {opt.model.input_type}")
@@ -138,7 +140,7 @@ def get_input(self, res, dist_shift, opt, scale=1.0, shift=None):
         shift = torch.stack([shift[:,0], padding, padding],1)
     elif opt.shift_type == 'x':
         shift = torch.stack([padding, shift[:,1], padding],1)
-    elif opt.shift_type = 'xy':
+    elif opt.shift_type == 'xy':
         shift = torch.stack([shift[:,0], shift[:,1], padding],1)
     if opt.model.input_type == '2d':
         shift = shift[:,:2]

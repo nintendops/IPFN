@@ -7,15 +7,14 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
-import core.app as app
+from core.app import *
 
 
 class Trainer():
     def __init__(self, opt):
         super(Trainer, self).__init__()
 
-        opt_dict = app.dump_args(opt)
+        opt_dict = dump_args(opt)
         self.check_opt(opt)
 
         # set random seed
@@ -40,7 +39,7 @@ class Trainer():
 
         # create logger
         log_path = os.path.join(self.root_dir, 'log.txt')
-        self.logger = app.Logger(log_file=log_path)
+        self.logger = Logger(log_file=log_path)
         self.logger.log('Setup', f'Logger created! Hello World!')
         self.logger.log('Setup', f'Random seed has been set to {self.opt.seed}')
         self.logger.log('Setup', f'Experiment id: {experiment_id}')
@@ -50,6 +49,13 @@ class Trainer():
         self.ckpt_dir = os.path.join(self.root_dir, 'ckpt')
         os.makedirs(self.ckpt_dir, exist_ok=True)
         self.logger.log('Setup', f'Checkpoint dir created!')
+
+        # setup summary
+        self.summary = Summary()
+
+        # setup timer
+        self.timer = Timer()
+        self.summary.register(['Time'])
 
         self._initialize_settings()
         
@@ -68,13 +74,6 @@ class Trainer():
         # check resuming
         self._resume_from_ckpt(opt.resume_path)
         self._setup_model_multi_gpu()
-
-        # setup summary
-        self.summary = app.Summary()
-
-        # setup timer
-        self.timer = app.Timer()
-        self.summary.register(['Time'])
 
         # done
         self.logger.log('Setup', 'Setup finished!')

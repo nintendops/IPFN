@@ -19,7 +19,7 @@ def build_model_from(opt, outfile_path=None):
         'c_in' : c_in,
         'non_linearity': 'relu',
         'bn': 'none',
-        'res': opt.model.image_res,
+        'res': opt.model.crop_res,
     }
 
     model = M.netD_3d(model_param).to(device)

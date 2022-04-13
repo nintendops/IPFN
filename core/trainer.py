@@ -1,4 +1,3 @@
-import app
 import os
 import time
 import numpy as np
@@ -15,10 +14,11 @@ from tqdm import tqdm
 from torch.autograd import Variable
 from core.loss import *
 from dataset import TextureImageDataset, SDFDataset
+from core.app import Trainer as BasicTrainer
 
-class BasicTrainer(app.Trainer):
+class IPFNTrainer(BasicTrainer):
     def __init__(self, opt):
-        super(BasicTrainer, self).__init__(opt)
+        super(IPFNTrainer, self).__init__(opt)
         self._setup_visualizer()
 
     def _initialize_settings(self):        
@@ -37,11 +37,11 @@ class BasicTrainer(app.Trainer):
         self.iter_counter = 0
 
     def _initialize_guidance_function(self):
-        if self.opt.guidance_feature_type == 'custom':
+        if self.opt.model.guidance_feature_type == 'custom':
             self.guidance = GU.CustomGuidanceMapping()
-        elif self.opt.guidance_feature_type == 'x':
+        elif self.opt.model.guidance_feature_type == 'x':
             self.guidance = GU.ModXMapping()
-        elif self.opt.guidance_feature_type == 'y':
+        elif self.opt.model.guidance_feature_type == 'y':
             self.guidance = GU.ModYMapping()
         else:
             self.guidance = None
@@ -63,7 +63,7 @@ class BasicTrainer(app.Trainer):
 
     def _get_scale_factor(self):
         # scale factor is the ratio of the original image size over the cropped patch size
-        size = min(self.original_size) if isinstance(self.original_size, tuple) else self.original_size
+        size = min(self.original_size) if isinstance(self.original_size, list) else self.original_size
         return 1 / self.opt.model.crop_res if self.opt.model.crop_res <= 1.0 else size / self.opt.model.crop_res
 
     def _get_dist_shift(self):
@@ -75,7 +75,8 @@ class BasicTrainer(app.Trainer):
         # size info of the input exemplar
         self.original_size = dataset._get_original_size()
         self.crop_size = dataset._get_cropped_size()
-        self.size_info = list(self.cropped_size) + list(self.original_size)
+        self.opt.model.crop_res = self.crop_size
+        self.size_info = [self.crop_size] + self.original_size
         self.scale_factor = self._get_scale_factor()
         self.dist_shift = self._get_dist_shift()
 
@@ -89,10 +90,10 @@ class BasicTrainer(app.Trainer):
 	                                                batch_size=self.opt.batch_size, \
 	                                                shuffle=False, \
 	                                                num_workers=self.opt.num_thread)
-        self.dastaset_iter = iter(self.dataset)
+        self.dataset_iter = iter(self.dataset)
 
         print(f"[Dataset] choosing a scale factor of {self.scale_factor}!!!")
-        print(f"[Dataset] Input original size at {self.original_size}, which is cropped to {self.original_size / self.scale_factor}!!!")
+        print(f"[Dataset] Input original size at {self.original_size}, which is cropped to {self.crop_size}!!!")
 
     def _setup_model(self):        
         if self.opt.run_mode == 'train':
@@ -116,6 +117,9 @@ class BasicTrainer(app.Trainer):
                                     lr=self.opt.train_lr.init_lr, betas=(0.5, 0.9))
         self.logger.log('Setup', 'Optimizer all-set!')
 
+
+    def _setup_metric(self):
+        self.metric = None
 
     def _setup_visualizer(self):
         self.vis = V.Visualizer(self.opt)

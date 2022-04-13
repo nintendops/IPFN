@@ -1,0 +1,32 @@
+#22-04-13 13:55:21# [Setup] Logger created! Hello World!
+#22-04-13 13:55:21# [Setup] Random seed has been set to 666
+#22-04-13 13:55:21# [Setup] Experiment id: debug
+#22-04-13 13:55:21# [Setup] Model id: model_20220413_13:55:21
+#22-04-13 13:55:21# [Setup] Checkpoint dir created!
+#22-04-13 13:55:24# [Setup] Setup optimizer!
+#22-04-13 13:55:24# [Setup] Optimizer all-set!
+#22-04-13 13:55:24# [Setup] Seems like we train from scratch!
+#22-04-13 13:55:24# [Setup] Using Multi-gpu and DataParallel!
+#22-04-13 13:55:24# [Setup] Setup finished!
+#22-04-13 13:55:38# [Training] Epoch 0: Time: 0.0000	LossD: -270.8047	LossG: -114.4000	Gradient Norm: 18.5636
+#22-04-13 13:55:50# [Training] Epoch 0: Time: 0.0000	LossD: -118.7555	LossG: 7.5139	Gradient Norm: 6.6244
+#22-04-13 13:56:02# [Training] Epoch 0: Time: 0.0000	LossD: -110.8826	LossG: -6.1263	Gradient Norm: 6.1788
+#22-04-13 13:56:15# [Training] Epoch 0: Time: 0.0000	LossD: -107.1579	LossG: 6.7062	Gradient Norm: 4.8338
+#22-04-13 13:56:27# [Training] Epoch 0: Time: 0.0000	LossD: -106.8640	LossG: -5.5924	Gradient Norm: 5.6998
+#22-04-13 13:56:39# [Training] Epoch 0: Time: 0.0000	LossD: -106.3773	LossG: -17.9754	Gradient Norm: 4.9390
+#22-04-13 13:56:51# [Training] Epoch 0: Time: 0.0000	LossD: -107.3732	LossG: -2.0870	Gradient Norm: 4.6985
+#22-04-13 13:57:03# [Training] Epoch 0: Time: 0.0000	LossD: -106.9277	LossG: 10.6891	Gradient Norm: 5.7641
+#22-04-13 13:57:16# [Training] Epoch 0: Time: 0.0000	LossD: -109.0704	LossG: 21.3086	Gradient Norm: 5.2737
+#22-04-13 13:57:28# [Training] Epoch 0: Time: 0.0000	LossD: -107.4173	LossG: 17.0289	Gradient Norm: 5.2180
+#22-04-13 13:57:40# [Training] Epoch 0: Time: 0.0000	LossD: -85.1865	LossG: 39.2832	Gradient Norm: 3.4789
+#22-04-13 13:57:52# [Training] Epoch 0: Time: 0.0000	LossD: -67.0726	LossG: 105.5810	Gradient Norm: 1.9627
+#22-04-13 13:58:04# [Training] Epoch 0: Time: 0.0000	LossD: -52.9449	LossG: 197.6296	Gradient Norm: 1.7044
+#22-04-13 13:58:17# [Training] Epoch 0: Time: 0.0000	LossD: -56.7487	LossG: 197.4125	Gradient Norm: 2.1691
+#22-04-13 13:58:29# [Training] Epoch 0: Time: 0.0000	LossD: -57.9988	LossG: 129.4653	Gradient Norm: 2.4593
+#22-04-13 13:58:41# [Training] Epoch 0: Time: 0.0000	LossD: -51.1083	LossG: 66.8772	Gradient Norm: 1.7942
+#22-04-13 13:58:53# [Training] Epoch 0: Time: 0.0000	LossD: -57.7462	LossG: 77.1576	Gradient Norm: 2.1474
+#22-04-13 13:59:06# [Training] Epoch 0: Time: 0.0000	LossD: -59.5565	LossG: 32.6291	Gradient Norm: 2.4847
+#22-04-13 13:59:18# [Training] Epoch 0: Time: 0.0000	LossD: -60.4533	LossG: 38.1119	Gradient Norm: 2.6023
+#22-04-13 13:59:30# [Training] Epoch 0: Time: 0.0000	LossD: -51.8106	LossG: 21.3738	Gradient Norm: 1.8475
+#22-04-13 13:59:42# [Training] Epoch 0: Time: 0.0000	LossD: -43.5035	LossG: 30.6330	Gradient Norm: 1.3408
+#22-04-13 13:59:55# [Training] Epoch 0: Time: 0.0000	LossD: -45.6413	LossG: 34.5403	Gradient Norm: 1.3251

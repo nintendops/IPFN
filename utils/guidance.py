@@ -1,7 +1,6 @@
 import numpy as np
 import torch
-from abc import ABC
-
+from abc import ABC, abstractmethod
 
 class GuidanceMapping(ABC):
     @abstractmethod

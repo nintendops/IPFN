@@ -9,9 +9,8 @@ parser = HierarchyArgmentParser()
 exp_args = parser.add_parser("experiment")
 exp_args.add_argument('-n', '--experiment-id', type=str, default='debug',
                       help='experiment id')
-exp_args.add_argument('--model-dir', type=str, default='trained_models'. help="where to save trained model")
-exp_args.add_argument('-s', '--seed', type=int, default=666,
-                      help='random seed')
+exp_args.add_argument('--model-dir', type=str, default='trained_models', help="where to save trained model")
+exp_args.add_argument('-s', '--seed', type=int, default=666, help='random seed')
 
 # Network arguments
 net_args = parser.add_parser("model")
@@ -32,7 +31,7 @@ net_args.add_argument('--k-threshold', type=float, default=-1)
 
 # Dataset arguments
 dataset_args = parser.add_parser("dataset")
-dataset_args.add_argument('-p', '--path', type=str, default='../datasets/honeycomb')
+dataset_args.add_argument('-p', '--path', type=str, default='exemplars/images/honeycombed_0003.jpg')
 dataset_args.add_argument('--repeat', type=int, default=5000)
 dataset_args.add_argument('--image-scale', type=float, default=1.0)
 dataset_args.add_argument('--sdf-scale', type=float, default=10.0)

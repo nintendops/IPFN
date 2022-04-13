@@ -4,7 +4,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
-from core.network_blocks import VGGFeatures
 
 # WGAN-GP: https://arxiv.org/pdf/1704.00028.pdf]
 def calc_gradient_penalty(netD, real_data, fake_data, multiscale=False, scale_weights=None, LAMBDA=10):
@@ -77,33 +76,3 @@ def calc_gradient_penalty(netD, real_data, fake_data, multiscale=False, scale_we
       norm = ((gradients.norm(2, dim=1) - 1) ** 2).mean()
     gradient_penalty = norm * LAMBDA
     return gradient_penalty, norm.item()
-
-class VGGLoss(nn.Module):
-    def __init__(self, opt):
-      super(VGGLoss, self).__init__()
-      self.vgg = VGGFeatures()
-      self.signed_to_unsigned = lambda x : (x + 1) / 2
-      self.loss_type = get_loss_type('mse')
-
-    def forward(self, y, gt):
-      loss_style = torch.tensor(0.0, device=y.device)
-      vggf_y = self.vgg(self.signed_to_unsigned(y))
-      vggf_gt = self.vgg(self.signed_to_unsigned(gt))
-      gram_y = list(map(gram_matrix, vggf_y))
-      gram_gt = list(map(gram_matrix, vggf_gt))
-
-      for gy,ggt in zip(gram_y, gram_gt):
-        loss_style += self.loss_type(gy, ggt)
-
-      # recon loss (debug only)
-      for fy,fgt in zip(vggf_y, vggf_gt):
-        loss_style += self.loss_type(fy, fgt)
-        
-      return loss_style
-
-def gram_matrix(x):
-    b, c, h, w = x.size()
-    features = x.view(b, c, h * w)
-    gram_matrix = torch.bmm(features, features.transpose(1, 2))
-    gram_matrix.div_(h * w)
-    return gram_matrix

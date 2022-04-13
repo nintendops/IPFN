@@ -5,7 +5,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
 import json
-import vgtk
 import core.network_blocks as M
 import utils.helper as H
 import numpy as np
@@ -34,7 +33,6 @@ class ImplicitGenerator(nn.Module):
         self.device = opt.device
         self.nz = param['nz']
         self.rand_shape = [opt.batch_size, self.nz]
-        self.octaves = opt.model.octaves
         self.batch_size = opt.batch_size
         self.dist_z = H.get_distribution_type(self.rand_shape, 'uniform')
         self.noise = opt.model.noise

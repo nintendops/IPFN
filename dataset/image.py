@@ -52,7 +52,7 @@ class TextureImageDataset(Dataset):
         return self.dataset_length
 
     def _get_original_size(self):
-        return (self.default_w, default_h)
+        return [self.default_w, self.default_h]
 
     def _get_cropped_size(self):
         return self.crop_res
@@ -90,22 +90,23 @@ class TextureImageDataset(Dataset):
         # x = transforms.functional.resize(x, [self.image_res, self.image_res])
         return x, torch.from_numpy(np.array([top,left], dtype=np.float32))
 
-
     def get_samples(self):
 
-        samples = []
-        types = ('*.jpeg', '*.jpg', '*.png')
+        if self.path_dir.is_dir():    
+            samples = []
+            types = ('*.jpeg', '*.jpg', '*.png')
 
-        split = 'test' if self.dataset_mode == 'val' else self.dataset_mode
+            split = 'test' if self.dataset_mode == 'val' else self.dataset_mode
 
-        if self.use_single or self.dataset_mode == 'test':
-            for type in types:
-                samples += list(Path(self.path_dir / 'test').glob('{}'.format(type)))
+            if self.use_single or self.dataset_mode == 'test':
+                for type in types:
+                    samples += list(Path(self.path_dir / 'test').glob('{}'.format(type)))
+            else:
+                for type in types:
+                    samples += list(Path(self.path_dir / split).glob('{}'.format(type)))
+            samples.sort()
         else:
-            for type in types:
-                samples += list(Path(self.path_dir / split).glob('{}'.format(type)))
-
-        samples.sort()
+            samples = [str(self.path_dir)]
 
         if self.dataset_mode == 'train':
             samples = samples * self.bs * self.opt.dataset.repeat  # 1000 can be removed if data set is big

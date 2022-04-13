@@ -109,12 +109,12 @@ def load_image(path, res=None):
 
 
 def process_args(opt):
-    if opt.model.input_type = '2d':
+    if opt.model.input_type == '2d':
         opt.model.image_dim = 2
         if opt.model.channel_dim < 0:
             # default to rgb color
             opt.model.channel_dim = 3 
-    elif opt.model.input_type = '3d':
+    elif opt.model.input_type == '3d':
         opt.model.image_dim = 3
         if opt.model.channel_dim < 0:
             # default to sdf
