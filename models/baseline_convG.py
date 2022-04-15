@@ -4,6 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import utils.helper as H
+import core.network_blocks as M
+
 
 class ConvGenerator(nn.Module):
     def __init__(self, opt, param):

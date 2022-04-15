@@ -1,4 +1,3 @@
-import app
 import os
 import time
 import numpy as np
@@ -14,60 +13,27 @@ from importlib import import_module
 from tqdm import tqdm
 from torch.autograd import Variable
 from core.loss import *
-from dataset import TextureImageDataset, SDFDataset
+from dataset import TerrainImageDataset
+from app import Trainer 
 
-class BasicTrainer(app.Trainer):
+class ProceduralTrainer(Trainer):
     def __init__(self, opt):
-        super(BasicTrainer, self).__init__(opt)
+        super(ProceduralTrainer, self).__init__(opt)
         self._setup_visualizer()
 
     def _initialize_settings(self):        
-        self._initialize_guidance_function()
-        if self.opt.model.input_type == '2d':
-            self.modelG = 'vanilla_mlp'
-            self.modelD = 'vanilla_netD'
-        elif self.opt.model.input_type == '3d':
-            self.modelG = 'sdf_mlp'
-            self.modelD = 'sdf_netD'
-        else:
-            raise NotImplementedError(f'Unsupported input type {self.opt.model.input_type}!')
-
+        self.modelG = 'procedural_convG'
+        self.modelD = 'vanilla_netD'
         self.summary.register(self._get_summary())
         self.epoch_counter = 0
         self.iter_counter = 0
-
-    def _initialize_guidance_function(self):
-        if self.opt.guidance_feature_type == 'custom':
-            self.guidance = GU.CustomGuidanceMapping()
-        elif self.opt.guidance_feature_type == 'x':
-            self.guidance = GU.ModXMapping()
-        elif self.opt.guidance_feature_type == 'y':
-            self.guidance = GU.ModYMapping()
-        else:
-            self.guidance = None
-        self.ifconditional = self.guidance is not None
-        if self.ifconditional:
-            self.opt.model.guidance_channel = self.guidance._get_channel()
 
     def _get_summary(self):
         return ['LossD', 'LossG', 'Gradient Norm']        
 
     def _get_dataset(self):
-        if self.opt.model.input_type == '2d':
-            dataset = TextureImageDataset(self.opt)
-        elif self.opt.model.input_type == '3d':
-            dataset = TextureImageDataset(self.opt)
-        else:
-            raise NotImplementedError(f'Unsupported input type {self.opt.model.input_type}!')
+        dataset = TerrainImageDataset(self.opt)
         return dataset
-
-    def _get_scale_factor(self):
-        # scale factor is the ratio of the original image size over the cropped patch size
-        size = min(self.original_size) if isinstance(self.original_size, tuple) else self.original_size
-        return 1 / self.opt.model.crop_res if self.opt.model.crop_res <= 1.0 else size / self.opt.model.crop_res
-
-    def _get_dist_shift(self):
-        return H.get_distribution_type([self.opt.batch_size, self.opt.model.image_dim], 'uniform')
 
     def _setup_datasets(self):
         dataset = self._get_dataset()
@@ -79,10 +45,6 @@ class BasicTrainer(app.Trainer):
         self.scale_factor = self._get_scale_factor()
         self.dist_shift = self._get_dist_shift()
 
-        # settings for conditional model
-        if self.ifconditional:
-            self.opt.shift_factor = self.scale_factor   
-
         self.dataest_size = len(dataset)
         self.n_iters = self.dataest_size / self.opt.batch_size
         self.dataset = torch.utils.data.DataLoader( dataset, \
@@ -91,8 +53,6 @@ class BasicTrainer(app.Trainer):
 	                                                num_workers=self.opt.num_thread)
         self.dastaset_iter = iter(self.dataset)
 
-        print(f"[Dataset] choosing a scale factor of {self.scale_factor}!!!")
-        print(f"[Dataset] Input original size at {self.original_size}, which is cropped to {self.original_size / self.scale_factor}!!!")
 
     def _setup_model(self):        
         if self.opt.run_mode == 'train':
@@ -199,32 +159,32 @@ class BasicTrainer(app.Trainer):
     def _optimize(self):
 
         # -------------------- Train D -------------------------------------------
-        # for p in self.modelG.parameters():
-        #     p.requires_grad = False
-
-        # set the scale of input grid in real coordinate space for adversarial training
-        scale = 1.0
 
         for p in self.modelD.parameters():
             p.requires_grad = True
         for i in range(self.opt.critic_steps):
 
             data = next(self.dataset_iter)
-            data_patch, data_ref, gu = data
+
+            data_real, data_ref = data
+
+            nb, nc, hr, wr = data_real.shape
+            nb, _, href, wref = data_ref.shape
             
+            assert wref == wr and hr > href
+
+            # padding reference image with zeros
+            paddings = torch.zeros([nb, nc, href-hr, wr])
+            data_patch = torch.cat([paddings, data_ref],2)
+
             self.modelD.zero_grad()
             
             # real data
-            data_patch = data_patch.to(self.opt.device)
+            data_real = data_real.to(self.opt.device)
 
             # (optional) subsample data further (deprecated)
             # data_patch = torch.nn.functional.interpolate(data_patch, \
             #              size=[self.opt.model.image_res,self.opt.model.image_res], mode='bilinear')
-
-            # conditional model
-            if self.ifconditional:
-                guidance_real = self.guidance.compute(data_patch, gu, self.size_info)
-                data_patch = torch.cat([data_patch, guidance_real.to(self.opt.device)], 1)
 
             real_data = Variable(data_patch)
             D_real = self.modelD(real_data)
@@ -232,15 +192,8 @@ class BasicTrainer(app.Trainer):
             D_real.backward()
 
             # fake data
-            g_in = H._get_input(self.crop_size, self.dist_shift, self.opt)
-            if self.ifconditional:
-                guidance_fake = self.guidance.compute(None, g_in, [0,self.scale_factor,self.scale_factor])
-                g_in = torch.cat([g_in, guidance_fake.to(self.opt.device)],1)
-
-            fake, _ = self.modelG(g_in, noise_factor=self.opt.model.noise_factor)
-
-            if self.ifconditional:
-                fake = torch.cat([fake, guidance_fake.to(self.opt.device)],1)
+            g_in = data_patch.to(self.opt.device)            
+            fake, _ = self.modelG(g_in)
 
             fake_data = Variable(fake.data)
             D_fake = self.modelD(fake_data).mean()
@@ -257,8 +210,8 @@ class BasicTrainer(app.Trainer):
 
         for i in range(self.opt.g_steps):
             self.modelG.zero_grad()
-            p_recon, z = self.modelG(g_in, noise_factor=self.opt.model.noise_factor, fix_sample=self.opt.fix_sample)
-            fake_data = p_recon if self.guidance is None else torch.cat([p_recon, guidance_fake.to(self.opt.device)], 1)
+            p_recon, z = self.modelG(g_in)
+            fake_data = p_recon 
             G_cost = self.modelD(fake_data)
             G_cost = -G_cost.mean()
             G_cost.backward()
@@ -274,25 +227,9 @@ class BasicTrainer(app.Trainer):
 
         # visualization (only applicable in 2D cases or can be modified to visualize slices of the 3D volume)
         if self.opt.model.input_type == '2d' and self.iter_counter % self.opt.log_freq == 0:
-            self.model.eval()
-            with torch.no_grad():
-                # eval: synthesize a larger texture (4x scale)
-                if self.ifconditional:
-                    g_in = H._get_input(self.crop_size * self.scale_factor, self.dist_shift, self.opt, scale=self.scale_factor, shift=0.0)
-                    guidance_fake = self.guidance.compute(None, g_in, [0,self.scale_factor,self.scale_factor])
-                    g_in = torch.cat([g_in, guidance_fake.to(self.opt.device)],1)
-                else:
-                    g_in = H._get_input(self.crop_size * 4.0, self.dist_shift, self.opt, scale=4.0)
-                global_recon, global_z = self.modelG(g_in, noise_factor=self.opt.model.noise_factor)
 
-            self.model.train()
-
-            self.visuals = {'train_patch': V.tensor_to_visual(data_patch[:,:3]),\
-                            'train_ref': V.tensor_to_visual(data_ref[:,:3]), 
+            self.visuals = {'train_real': V.tensor_to_visual(data_real[:,:3]), 
                             'train_patch_recon': V.tensor_to_visual(p_recon[:,:3]), 
-                            'train_global_recon': V.tensor_to_visual(global_recon[:,:3]),     
-                            'noise_visual': V.tensor_to_visual(z[:,:3]),
-                            'global_noise': V.tensor_to_visual(global_z[:,:3]),                        
             }
 
             if self.ifconditional:
@@ -346,27 +283,13 @@ class BasicTrainer(app.Trainer):
         self.logger.log('Training', f'{step}: {stats}')
         # self.summary.reset(['Loss', 'Pos', 'Neg', 'Acc', 'InvAcc'])
 
-    def _synthesize(self, res, scale=1.0, shift=0.0):
-        if self.ifconditional:
-            g_in = H._get_input(res, self.dist_shift, self.opt, scale=scale, shift=shift)
-            guidance_fake = self.guidance.compute(None, g_in, [0,scale,scale])
-            g_in = torch.cat([g_in, guidance_fake.to(self.opt.device)],1)
-        else:
-            g_in = H._get_input(res, self.dist_shift, self.opt, scale=scale, shift=shift)
-            guidance_fake = None
-        global_recon, global_z = self.modelG(g_in, noise_factor=self.opt.model.noise_factor)
-        return global_recon, global_z, guidance_fake
-
-
     def eval(self):
         self.logger.log('Testing','Evaluating test set!')        
         self.model.eval()
 
         '''
         Eval options: 
-            - Synthesize test: synthesize enlarged samples of the pattern
-            - Zoom out test: create gif of a zooming out views of the pattern
-            - Panning test: create gif of a moving views of the pattern
+
 
         '''
         # save path
@@ -375,67 +298,4 @@ class BasicTrainer(app.Trainer):
         self.logger.log('Testing', f"Saving output to {image_path}!!!")
 
         with torch.no_grad():
-
-            self.crop_size *= self.opt.test_scale
-            self.scale_factor = self.opt.test_scale
-
-            countdown = 5
-            for i in range(countdown):
-                self.vis.yell(f"Getting ready to test! Start in {5-i}...")
-                time.sleep(1)
-            
-            
-            self.vis.yell(f"Random synthesized pattern at {scale}X size!")
-            sample = 10
-
-            for i in range(sample):
-
-                if self.ifconditional:
-                    g_in = H._get_input(self.crop_size, self.dist_shift, self.opt, scale=self.scale_factor, shift=0.0)
-                    guidance_fake = self.guidance.compute(None, g_in, [0,self.scale_factor,self.scale_factor])
-                    g_in = torch.cat([g_in, guidance_fake.to(self.opt.device)],1)
-                else:
-                    g_in = H._get_input(self.crop_size, self.dist_shift, self.opt, scale=self.scale_factor)
-                recon, z = self.modelG(g_in, noise_factor=self.opt.model.noise_factor)
-
-                self.visuals = {
-                                'generated image': V.tensor_to_visual(recon),\
-                                'noise_visual': V.tensor_to_visual(z[:,:3]),
-                                'guidance': V.tensor_to_visual(guidance_fake),
-                }
-                self.vis.display_current_results(self.visuals)
-            
-                filename = f"sample_idx{i}.png"
-                io.write_images(os.path.join(image_path,filename),V.tensor_to_visual(recon),1)
-                time.sleep(1)
-
-            # self.vis.yell(f"zomming test!")
-            # for i in np.arange(0.5, 2, 0.001):
-            #     recon = self.modelG(self._get_input(scale=i), True)
-            #     self.visuals = {
-            #                     'Zooming test': V.tensor_to_visual(recon),\
-            #     }
-            #     self.vis.display_current_results(self.visuals,10)
-                
-
-            self.vis.yell(f"panning test!")
-            for i in np.arange(-8, 8, 0.005):
-                shift = torch.from_numpy(np.array([0,i],dtype=np.float32)[None,:,None,None]).to(self.opt.device)
-                
-                coords, guidance = self._get_input(shift=shift, scale=self.scale_factor*scale,up_factor=self.scale_factor)
-                recon, z = self.modelG(torch.cat([coords,guidance],1), noise_factor=self.opt.model.noise_factor, fix_sample=True)
-                
-                self.visuals = {
-                                'Panning test': V.tensor_to_visual(recon),\
-                                'noise_visual': V.tensor_to_visual(z[:,:3]),
-                }
-                self.vis.display_current_results(self.visuals,11)
-                
-            # for i in np.arange(-3, 3, 0.01):
-            #     shift = torch.from_numpy(np.array([i,3],dtype=np.float32)[None,:,None,None]).to(self.opt.device)
-            #     recon = self.modelG(self._get_input(shift=shift), True)
-            #     self.visuals = {
-            #                     'Panning test': V.tensor_to_visual(recon),\
-            #     }
-            #    self.vis.display_current_results(self.visuals,11)
-                
+            pass

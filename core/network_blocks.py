@@ -176,6 +176,7 @@ class netG_mlp_ns(nn.Module):
         x = torch.cat([x, g_feat, g],1)
         return self.generator(x)
 
+
 # discriminator
 class netD_v1(nn.Module):
     def __init__(self, param):
@@ -187,14 +188,10 @@ class netD_v1(nn.Module):
         # nf_out = param['c_out']
         non_linearity = param['non_linearity']        
         res = param['res']
-        kernel_size = 4
+        kernel_size = 2
         ##########################
         # should not contain batchnorm
-        # blocks = nn.Sequential(
-        #     Conv2dBlock(nf_in, dim, 3, 2, 1, norm_type=None, activation_type=non_linearity, bias=False),
-        #     Conv2dBlock(dim, 2 * dim, 3, 2, 1, norm_type=None, activation_type=non_linearity, bias=False),        
-        #     Conv2dBlock(2 * dim, 4 * dim, 3, 2, 1, norm_type=None, activation_type=non_linearity, bias=False),
-        # )
+        # 4 layer 2 stride
         blocks = nn.Sequential(
             nn.Conv2d(nf_in, dim, kernel_size, 2, 1),
             nn.LeakyReLU(inplace=True),
@@ -256,6 +253,110 @@ class netD_3d(nn.Module):
         x = x.view(bs,-1)
         x = self.linear(x)
         return x
+
+
+class encoder_2d(nn.Module):
+    def __init__(self, param):
+        super(encoder_2d, self).__init__()
+        self.param = param
+        ###### params##############
+        dim = param['n_features']
+        nf_in = param['c_in']
+        # nf_out = param['c_out']
+        non_linearity = param['non_linearity']        
+        res = param['res']
+        latent_dim = param['latent']
+        kernel_size = param['kernel_size']
+        stride = param['stride']
+        ##########################
+
+        # should not contain batchnorm
+        blocks = nn.Sequential(
+            nn.Conv3d(nf_in, dim, kernel_size, stride, 1),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv3d(dim, 2 * dim, kernel_size, stride, 1),   
+            nn.LeakyReLU(inplace=True),
+            nn.Conv3d(2 * dim, 4 * dim, kernel_size, stride, 1),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv3d(4 * dim, 8 * dim, kernel_size, stride, 1),
+            nn.LeakyReLU(inplace=True),
+        )
+        self.blocks = blocks
+        n_conv = 4
+        c_in = int(8 * dim * (res**3) / 8**n_conv)
+        self.linear = nn.Linear(c_in, latent_dim)
+
+    def forward(self, x):
+        bs = x.shape[0]
+        for idx, block in enumerate(self.blocks):
+            x = block(x)
+        x = x.view(bs,-1)
+        x = self.linear(x)
+        return x   
+
+
+# Conv Blocks
+class PartialConvGenerator(nn.Module):
+    '''
+        Generate partial portion of the synthesized image:
+            z -> (3, H/k,W)
+
+    '''
+    def __init__(self, opt, param):
+        super(PartialConvGenerator, self).__init__()
+
+        nfeatures = param['n_features']
+        c_in = param['c_in']
+        p = param['portion']
+        kernel_size = param['kernel_size']
+        stride = param['stride']
+        nb = opt.batch_size
+        s_i = 0
+
+        stride_w = int(stride)
+        stride_h = int(stride * 1/p)
+
+        self.opt = opt
+        self.device = opt.device
+
+        blocks = nn.ModuleList()        
+
+        # 4-layer 2 strides deconv
+        for i,nc in enumerate(nfeatures):
+            # padding = 1 if i > 0 else 0
+            blocks.append(nn.Sequential(
+                nn.ConvTranspose2d(c_in, nc, kernel_size, stride=(stride_w, stride_h)),
+                # nn.BatchNorm2d(nc),
+                nn.ReLU(True),
+            ))            
+            c_in = nc
+
+        deconv_out = nn.ConvTranspose2d(c_in, 3, 2, stride=(stride_w, stride_h))
+        self.blocks = blocks
+        self.deconv_out = deconv_out
+        self.tanh = nn.Tanh()
+
+    def forward(self, x, noise_factor=None):
+        '''
+            input: latent vector
+            output: color nb, 3, h, w
+        '''
+        
+        nb, nz = x.shape[:2]        
+        y = x
+        for idx, block in enumerate(self.blocks):
+            y = block(y)
+            # print(f'----- netG layer {idx} -------')
+            # print(y.shape)
+        y = self.deconv_out(y)
+        y = self.tanh(y)
+
+        return y, x
+
+
+
+
+
 
 class ResnetBlock(nn.Module):
     """ A single Res-Block module """

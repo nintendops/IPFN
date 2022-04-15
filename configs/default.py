@@ -18,7 +18,7 @@ net_args.add_argument('--input-type', type=str, default='2d',help=' 2d | 3d, whi
 net_args.add_argument('--crop-res', type=float, default=128, help='either a scale or an integer, defining the size of the cropped patches')
 net_args.add_argument('--source-scale', type=float, default=1.0, help='downsampling scale of the input')
 net_args.add_argument('--channel-dim', type=int, default=-1, help='number of channels in the input image (image default to 3, volume default to 1')
-net_args.add_argument('--latent-dim', type=int, default=5)
+net_args.add_argument('--latent-dim', type=int, default=64)
 net_args.add_argument('--noise', type=str, default='stationary',
                       help='type of noise added to the implicit field: const | stationary')
 net_args.add_argument('--noise-factor', type=float, default=1.0),
