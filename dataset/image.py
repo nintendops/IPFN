@@ -134,99 +134,87 @@ class TextureImageDataset(Dataset):
         return file_patch, file, d #, Path(filepath).stem
 
 
-# class Texture3dDataset(TextureImageDataset):
-#     def get_samples(self):
-#         basecolor = next(Path(self.path_dir).glob('*basecolor.jpg'))
-#         height = next(Path(self.path_dir).glob('*height.png'))
-#         normal = next(Path(self.path_dir).glob('*normal.jpg'))
-#         ambientOcclusion = next(Path(self.path_dir).glob('*ambientOcclusion.jpg'))
-#         samples = [basecolor, height, normal, ambientOcclusion]
-#         return samples
+class TerrainImageDataset(Dataset):
 
-#     def __len__(self):
-#         return self.bs * self.opt.dataset.repeat
-
-#     def __getitem__(self, idx):
-#         # idx = 0 if self.use_single else idx
-#         d = torch.from_numpy(np.array([0.0,0.0], dtype=np.float32))
+    def __init__(self, opt):
+        super(TerrainImageDataset, self).__init__()
         
-#         rgb_path = self.samples[0]
-#         height_path = self.samples[1]
-#         normal_path = self.samples[2]
-#         ao_path = self.samples[3]
-#         # file = io.load_image(str(Path(filepath)),(256,256))
-#         files = []
-#         file_patches = []
+        self.opt = opt
+        self.bs = opt.batch_size
+        self.device = opt.device
+        self.path_dir = Path(opt.dataset.path)
+        self.p = opt.model.portion
+        self.samples = self.get_samples()
+        self.dataset_length = len(self.samples)
+        
+        filepath = self.samples[0]
+        file = io.load_image(str(Path(filepath)))
+        h,w,_ = file.shape
+        
+        self.default_size = int(min(w,h) * opt.dataset.image_scale)
+        self.default_w = int(w * opt.dataset.image_scale)
+        self.default_h = int(h * opt.dataset.image_scale)
+        
+        if opt.model.crop_res <= 1.0:
+            self.crop_res = int(opt.model.crop_res * self.default_size)
+        else:
+            self.crop_res = int(opt.model.crop_res)
 
-#         top, left = np.random.rand(2) 
-#         top = int(top * (self.default_h - self.global_res))
-#         left = int(left * (self.default_w - self.global_res))
+        self.initialize_transform(transform_type)
+        self.ref_idx = 0
 
-#         for filepath in [rgb_path, height_path, normal_path]:
-#             file = io.load_image(str(Path(filepath)))
-#             file = io.numpy_to_pytorch(file)
-#             file = file[:3]
-#             file_patch = self.transforms(file)
-#             # file_patch = self.weighted_crop(file_patch, top, left)
-#             files.append(file)
-#             file_patches.append(file_patch)
+    def __len__(self):
+        return self.dataset_length
 
-#         files = torch.cat(files, 0)
-#         file_patches = torch.cat(file_patches, 0)
-#         file_patches = self.transforms_crop(file_patches)
-#         return file_patches, files, d #, Path(filepath).stem
+    def _get_original_size(self):
+        return [self.default_w, self.default_h]
 
-# class RGBDDataset(TextureImageDataset):
-#     def get_samples(self):
-#         color_files = []
-#         depth_files = []
+    def _get_cropped_size(self):
+        return self.crop_res
 
-#         for cf in Path(self.path_dir).glob('*color.png'):
-#             xi, yi = parse.parse("{:d}_{:d}_color.png", cf.name)
-#             depth_files.append(Path(self.path_dir) / f"{xi}_{yi}_depth.png")
-#             color_files.append(str(cf.resolve()))
-#             # print(depth_files[-1])
-#             # assert depth_files[-1].exists()
+    def initialize_transform(self, transform_type):              
+        self.transforms = transforms.Compose([
+            transforms.ToPILImage(),
+            transforms.Resize([self.default_h,self.default_w]),
+            transforms.RandomCrop(self.crop_res),
+            # transforms.RandomHorizontalFlip(p=0.5),
+            # transforms.RandomVerticalFlip(p=0.5),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        ])
+    
+    def get_samples(self):
+        if self.path_dir.is_dir():    
+            samples = []
+            types = ('*.jpeg', '*.jpg', '*.png')
+            samples = list(Path(self.path_dir).glob('{}'.format(type)))
+            samples.sort()
+        else:
+            samples = [str(self.path_dir)]
 
-#         self.depth_files = [str(p) for p in depth_files]
-#         return color_files
+        if self.dataset_mode == 'train':
+            samples = samples * self.opt.dataset.repeat  
+        else:
+            samples = samples 
+        print("DATASET SAMPLES LOADED. LENGTH: ", len(samples))
+        return samples
 
-#     def __len__(self):
-#         return len(self.samples) * self.opt.dataset.repeat
+    def zero_padding(self, img):
+        # assume torch tensor input (3, h, w)
+        h, w = img.shape[:-2]
+        p = int(h * self.p)
+        padded_img = torch.cat([img[:,:p], torch.zeros_like(img[:,p:])], 1)
+        return padded_img
 
-#     def __getitem__(self, idx):
-#         idx = idx // self.opt.dataset.repeat
-#         d = torch.from_numpy(np.array([0.0,0.0], dtype=np.float32))
-#         rgb_path = self.samples[idx]
-#         depth_path = self.depth_files[idx]
-#         rgb = io.load_image(rgb_path)
-#         rgb = io.numpy_to_pytorch(rgb)
-#         depth = io.load_image(depth_path)
-#         depth = io.numpy_to_pytorch(depth)
-#         rgbd = torch.cat([rgb, depth], 0)
-#         file_patch = self.transforms(rgbd)
-#         return file_patch[:3], rgbd[:3], d #, Path(filepath).stem
+    def _load_img(self, idx):
+        filepath = self.samples[idx]
+        file = io.load_image(str(Path(filepath)))
+        file = io.numpy_to_pytorch(file)
+        file = file[:3]
+        return sefl.transforms(file)        
 
-#     def initialize_transform(self, transform_type):
-#         d = None
-#         if transform_type == 'simple' or transform_type == 'positioned_crop':            
-#             self.transforms = transforms.Compose([
-#                 transforms.ToPILImage(),
-#                 transforms.Resize([self.default_h,self.default_w]),
-#                 transforms.ToTensor(),
-#                 transforms.Normalize((0.5, 0.5, 0.5, 0.5), (0.5, 0.5, 0.5, 0.5)),
-#             ])
-#             self.transforms_crop = transforms.Compose([
-#                 transforms.RandomCrop(self.global_res),
-#             ])
-#         elif transform_type == 'default':
-#             self.transforms = transforms.Compose([
-#                 transforms.ToPILImage(),
-#                 transforms.Resize([self.default_h,self.default_w]),
-#                 transforms.RandomCrop(self.global_res),
-#                 # transforms.RandomHorizontalFlip(p=0.5),
-#                 # transforms.RandomVerticalFlip(p=0.5),
-#                 transforms.ToTensor(),
-#                 transforms.Normalize((0.5, 0.5, 0.5, 0.5), (0.5, 0.5, 0.5, 0.5)),
-#             ])
-#         self.transform_type = transform_type
+    def __getitem__(self, idx):
+        real_img = self._load_img(idx)
+        ref_img = self._load_img(self.ref_idx)        
+        ref_img_padded = self.zero_padding(ref_img)
+        return real_img, ref_img, ref_img_padded

@@ -166,7 +166,7 @@ class ProceduralTrainer(Trainer):
 
             data = next(self.dataset_iter)
 
-            data_real, data_ref = data
+            data_real, data_ref, data_ref_original = data
 
             nb, nc, hr, wr = data_real.shape
             nb, _, href, wref = data_ref.shape
@@ -229,12 +229,9 @@ class ProceduralTrainer(Trainer):
         if self.opt.model.input_type == '2d' and self.iter_counter % self.opt.log_freq == 0:
 
             self.visuals = {'train_real': V.tensor_to_visual(data_real[:,:3]), 
-                            'train_patch_recon': V.tensor_to_visual(p_recon[:,:3]), 
+                            'train_ref_recon': V.tensor_to_visual(p_recon[:,:3]), 
+                            'train_ref_original': V.tensor_to_visual(data_ref_original[:,:3]),
             }
-
-            if self.ifconditional:
-                self.visuals['guidance_real'] = V.tensor_to_visual(guidance_real)
-                self.visuals['guidance_fake'] = V.tensor_to_visual(guidance_fake)
 
             self.losses = {                
                     'LossG': G_cost.item(),

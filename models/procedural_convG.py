@@ -13,7 +13,7 @@ class ConvGenerator(nn.Module):
 
         nb = opt.batch_size
         nz = param['nz']
-        self.p = opt.model.portion
+        self.p = param['portion']
 
         # param for encoder
         param_encoder = param['encoder']
@@ -55,9 +55,10 @@ class ConvGenerator(nn.Module):
         composed_y = torch.cat([source_img, y], 2)
         return composed_y, z
 
-def build_model_from(opt, outfile_path=None):
+def build_model_from(opt, p, outfile_path=None):
     device = opt.device
     model_param = {
+        'portion' : p,
         'encoder' : {
             'n_features':[],
             'c_in':3,
