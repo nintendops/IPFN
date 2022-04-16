@@ -389,8 +389,8 @@ class IPFNTrainer(BasicTrainer):
                 time.sleep(1)
             
             
-            self.vis.yell(f"Random synthesized pattern at {scale}X size!")
-            sample = 10
+            self.vis.yell(f"Random synthesized pattern at {self.scale_factor}X size!")
+            sample = 40
 
             for i in range(sample):
 
@@ -406,7 +406,6 @@ class IPFNTrainer(BasicTrainer):
                 self.visuals = {
                                 'generated image': V.tensor_to_visual(recon),\
                                 'noise_visual': V.tensor_to_visual(z[:,:3]),
-                                'guidance': V.tensor_to_visual(guidance_fake),
                 }
                 self.vis.display_current_results(self.visuals)
                 
@@ -423,18 +422,18 @@ class IPFNTrainer(BasicTrainer):
             #     self.vis.display_current_results(self.visuals,10)
                 
 
-            self.vis.yell(f"panning test!")
-            for i in np.arange(-8, 8, 0.005):
-                shift = torch.from_numpy(np.array([0,i],dtype=np.float32)[None,:,None,None]).to(self.opt.device)
+            # self.vis.yell(f"panning test!")
+            # for i in np.arange(-8, 8, 0.005):
+            #     shift = torch.from_numpy(np.array([0,i],dtype=np.float32)[None,:,None,None]).to(self.opt.device)
                 
-                coords, guidance = self._get_input(shift=shift, scale=self.scale_factor*scale,up_factor=self.scale_factor)
-                recon, z = self.modelG(torch.cat([coords,guidance],1), noise_factor=self.opt.model.noise_factor, fix_sample=True)
+            #     coords, guidance = self._get_input(shift=shift, scale=self.scale_factor*scale,up_factor=self.scale_factor)
+            #     recon, z = self.modelG(torch.cat([coords,guidance],1), noise_factor=self.opt.model.noise_factor, fix_sample=True)
                 
-                self.visuals = {
-                                'Panning test': V.tensor_to_visual(recon),\
-                                'noise_visual': V.tensor_to_visual(z[:,:3]),
-                }
-                self.vis.display_current_results(self.visuals,11)
+            #     self.visuals = {
+            #                     'Panning test': V.tensor_to_visual(recon),\
+            #                     'noise_visual': V.tensor_to_visual(z[:,:3]),
+            #     }
+            #     self.vis.display_current_results(self.visuals,11)
                 
             # for i in np.arange(-3, 3, 0.01):
             #     shift = torch.from_numpy(np.array([i,3],dtype=np.float32)[None,:,None,None]).to(self.opt.device)
