@@ -14,9 +14,10 @@ from tqdm import tqdm
 from torch.autograd import Variable
 from core.loss import *
 from dataset import TerrainImageDataset
-from app import Trainer 
+from core.app import Trainer as BasicTrainer
 
-class ProceduralTrainer(Trainer):
+
+class ProceduralTrainer(BasicTrainer):
     def __init__(self, opt):
         super(ProceduralTrainer, self).__init__(opt)
         self._setup_visualizer()
@@ -41,17 +42,17 @@ class ProceduralTrainer(Trainer):
         # size info of the input exemplar
         self.original_size = dataset._get_original_size()
         self.crop_size = dataset._get_cropped_size()
-        self.size_info = list(self.cropped_size) + list(self.original_size)
-        self.scale_factor = self._get_scale_factor()
-        self.dist_shift = self._get_dist_shift()
-
+        self.opt.model.image_res = self.crop_size
+        self.crop_portion = int(self.crop_size * self.opt.model.portion)
+        self.size_info = [self.crop_size] + self.original_size
+        
         self.dataest_size = len(dataset)
         self.n_iters = self.dataest_size / self.opt.batch_size
         self.dataset = torch.utils.data.DataLoader( dataset, \
 	                                                batch_size=self.opt.batch_size, \
 	                                                shuffle=False, \
 	                                                num_workers=self.opt.num_thread)
-        self.dastaset_iter = iter(self.dataset)
+        self.dataset_iter = iter(self.dataset)
 
 
     def _setup_model(self):        
@@ -61,7 +62,7 @@ class ProceduralTrainer(Trainer):
             param_outfile = None
         module = import_module('models')
         print(f"Using network model {self.modelG}!")
-        self.model = getattr(module, self.modelG).build_model_from(self.opt, param_outfile)
+        self.model = getattr(module, self.modelG).build_model_from(self.opt, self.opt.model.portion, param_outfile)
         self.modelG = self.model
         module = import_module('models')
         print(f"Using discriminator model {self.modelD}!")
@@ -168,14 +169,12 @@ class ProceduralTrainer(Trainer):
 
             data_real, data_ref, data_ref_original = data
 
-            nb, nc, hr, wr = data_real.shape
-            nb, _, href, wref = data_ref.shape
-            
-            assert wref == wr and hr > href
-
-            # padding reference image with zeros
-            paddings = torch.zeros([nb, nc, href-hr, wr])
-            data_patch = torch.cat([paddings, data_ref],2)
+            # nb, nc, hr, wr = data_real.shape
+            # nb, _, href, wref = data_ref.shape
+            # assert wref == wr and hr > href
+            # # padding reference image with zeros
+            # paddings = torch.zeros([nb, nc, href-hr, wr])
+            # data_patch = torch.cat([paddings, data_ref],2)
 
             self.modelD.zero_grad()
             
@@ -186,15 +185,14 @@ class ProceduralTrainer(Trainer):
             # data_patch = torch.nn.functional.interpolate(data_patch, \
             #              size=[self.opt.model.image_res,self.opt.model.image_res], mode='bilinear')
 
-            real_data = Variable(data_patch)
+            real_data = Variable(data_real)
             D_real = self.modelD(real_data)
             D_real = -1 * D_real.mean()
             D_real.backward()
 
             # fake data
-            g_in = data_patch.to(self.opt.device)            
+            g_in = data_ref.to(self.opt.device)            
             fake, _ = self.modelG(g_in)
-
             fake_data = Variable(fake.data)
             D_fake = self.modelD(fake_data).mean()
             D_fake.backward()
@@ -224,6 +222,7 @@ class ProceduralTrainer(Trainer):
         }
 
         self.summary.update(log_info)
+
 
         # visualization (only applicable in 2D cases or can be modified to visualize slices of the 3D volume)
         if self.opt.model.input_type == '2d' and self.iter_counter % self.opt.log_freq == 0:

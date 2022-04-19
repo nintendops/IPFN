@@ -1,4 +1,3 @@
-import app
 import os
 import time
 import numpy as np
@@ -15,10 +14,11 @@ from tqdm import tqdm
 from torch.autograd import Variable
 from core.loss import *
 from dataset import TextureImageDataset, SDFDataset
+from core.app import Trainer as BasicTrainer
 
-class BasicTrainer(app.Trainer):
+class IPFNTrainer(BasicTrainer):
     def __init__(self, opt):
-        super(BasicTrainer, self).__init__(opt)
+        super(IPFNTrainer, self).__init__(opt)
         self._setup_visualizer()
 
     def _initialize_settings(self):        

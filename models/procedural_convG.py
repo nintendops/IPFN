@@ -13,17 +13,19 @@ class ConvGenerator(nn.Module):
 
         nb = opt.batch_size
         nz = param['nz']
-        self.p = param['portion']
+        self.p = int(param['portion'] * opt.model.image_res)
 
         # param for encoder
         param_encoder = param['encoder']
-        param_encoder['res'] = self.opt.model.image_res
+        param_encoder['res'] = opt.model.image_res
 
+        self.encoder = M.encoder_2d(param['encoder'])
 
         # param for convG
         param_generator = param['convG']
         param_generator['c_in'] = nz + param_encoder['latent']
-        param_generator['portion'] = self.p
+        param_generator['portion'] = param['portion']
+        self.generator = M.PartialConvGenerator(param['convG'])
 
         # nfeatures = param['n_features']
         # kernels = param['kernels']
@@ -46,12 +48,10 @@ class ConvGenerator(nn.Module):
         z = self.encoder(x)
         noise = self.sampler.sample().to(self.device)
         z = torch.cat([z, noise], 1)
-        y = self.generator(z)     
-
+        y, _ = self.generator(z)     
         # upsampling
         y = torch.nn.functional.interpolate(y, \
                      size=[h - self.p,w], mode='bilinear')
-
         composed_y = torch.cat([source_img, y], 2)
         return composed_y, z
 
@@ -60,7 +60,7 @@ def build_model_from(opt, p, outfile_path=None):
     model_param = {
         'portion' : p,
         'encoder' : {
-            'n_features':[],
+            'n_features': 64,
             'c_in':3,
             'latent': 64,
             'stride': 2,
@@ -68,9 +68,9 @@ def build_model_from(opt, p, outfile_path=None):
             'non_linearity': 'relu',
         },
         'convG' : {
-            'n_features': [],
+            'n_features': [512, 256, 128, 64],
             'stride':2,
-            'kernel_size':3,
+            'kernel_size':4,
             'non_linearity': 'relu',
         },
         'nz': opt.model.latent_dim,

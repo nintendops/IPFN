@@ -141,7 +141,10 @@ class TerrainImageDataset(Dataset):
         
         self.opt = opt
         self.bs = opt.batch_size
+        self.dataset_mode = opt.run_mode
+
         self.device = opt.device
+
         self.path_dir = Path(opt.dataset.path)
         self.p = opt.model.portion
         self.samples = self.get_samples()
@@ -160,8 +163,8 @@ class TerrainImageDataset(Dataset):
         else:
             self.crop_res = int(opt.model.crop_res)
 
-        self.initialize_transform(transform_type)
-        self.ref_idx = 0
+        self.initialize_transform()
+        self.ref_idx = 10
 
     def __len__(self):
         return self.dataset_length
@@ -172,7 +175,7 @@ class TerrainImageDataset(Dataset):
     def _get_cropped_size(self):
         return self.crop_res
 
-    def initialize_transform(self, transform_type):              
+    def initialize_transform(self):              
         self.transforms = transforms.Compose([
             transforms.ToPILImage(),
             transforms.Resize([self.default_h,self.default_w]),
@@ -186,8 +189,9 @@ class TerrainImageDataset(Dataset):
     def get_samples(self):
         if self.path_dir.is_dir():    
             samples = []
-            types = ('*.jpeg', '*.jpg', '*.png')
-            samples = list(Path(self.path_dir).glob('{}'.format(type)))
+            types = ('*.jpeg', '*.jpg', '*.png',"*.JPG")
+            for t in types:
+                samples += list(Path(self.path_dir).glob('{}'.format(t)))
             samples.sort()
         else:
             samples = [str(self.path_dir)]
@@ -196,12 +200,13 @@ class TerrainImageDataset(Dataset):
             samples = samples * self.opt.dataset.repeat  
         else:
             samples = samples 
+
         print("DATASET SAMPLES LOADED. LENGTH: ", len(samples))
         return samples
 
     def zero_padding(self, img):
         # assume torch tensor input (3, h, w)
-        h, w = img.shape[:-2]
+        h, w = img.shape[-2:]
         p = int(h * self.p)
         padded_img = torch.cat([img[:,:p], torch.zeros_like(img[:,p:])], 1)
         return padded_img
@@ -211,7 +216,7 @@ class TerrainImageDataset(Dataset):
         file = io.load_image(str(Path(filepath)))
         file = io.numpy_to_pytorch(file)
         file = file[:3]
-        return sefl.transforms(file)        
+        return self.transforms(file)        
 
     def __getitem__(self, idx):
         real_img = self._load_img(idx)

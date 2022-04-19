@@ -164,7 +164,7 @@ class Trainer():
     def _setup_metric(self):
         self.logger.log('Setup', 'Setup metric!')
         self.metric = None
-        raise NotImplementedError('Not implemented')
+        # raise NotImplementedError('Not implemented')
 
     def _resume_from_ckpt(self, resume_path):
         if resume_path is None:

@@ -188,7 +188,7 @@ class netD_v1(nn.Module):
         # nf_out = param['c_out']
         non_linearity = param['non_linearity']        
         res = param['res']
-        kernel_size = 2
+        kernel_size = 3
         ##########################
         # should not contain batchnorm
         # 4 layer 2 stride
@@ -210,9 +210,11 @@ class netD_v1(nn.Module):
     def forward(self, x):
         bs, nc, w, h = x.shape
         for idx, block in enumerate(self.blocks):
+            # print(f"----- Before NetD layer {idx} -----")
+            # print(x.shape)
             x = block(x)
-        #     print(f"----- NetD layer {idx} -----")
-        #     print(x.shape)
+            # print(f"----- After NetD layer {idx} -----")
+            # print(x.shape)
         x = x.view(bs,-1)
         x = self.linear(x)
         return x
@@ -272,24 +274,29 @@ class encoder_2d(nn.Module):
 
         # should not contain batchnorm
         blocks = nn.Sequential(
-            nn.Conv3d(nf_in, dim, kernel_size, stride, 1),
+            nn.Conv2d(nf_in, dim, kernel_size, stride, 0),
             nn.LeakyReLU(inplace=True),
-            nn.Conv3d(dim, 2 * dim, kernel_size, stride, 1),   
+            nn.Conv2d(dim, 2 * dim, kernel_size, stride, 0),   
             nn.LeakyReLU(inplace=True),
-            nn.Conv3d(2 * dim, 4 * dim, kernel_size, stride, 1),
+            nn.Conv2d(2 * dim, 4 * dim, kernel_size, stride, 0),
             nn.LeakyReLU(inplace=True),
-            nn.Conv3d(4 * dim, 8 * dim, kernel_size, stride, 1),
+            nn.Conv2d(4 * dim, 8 * dim, kernel_size, stride, 0),
             nn.LeakyReLU(inplace=True),
         )
         self.blocks = blocks
         n_conv = 4
-        c_in = int(8 * dim * (res**3) / 8**n_conv)
+
+        c_in = int(8 * dim * (res**2) / 4**n_conv)
         self.linear = nn.Linear(c_in, latent_dim)
 
     def forward(self, x):
         bs = x.shape[0]
         for idx, block in enumerate(self.blocks):
+            # print(f"Encoder: input tensor of size {x.shape}")
             x = block(x)
+            # print(f"Encoder: output tensor of size {x.shape}")
+            # import ipdb; ipdb.set_trace()
+
         x = x.view(bs,-1)
         x = self.linear(x)
         return x   
@@ -302,7 +309,7 @@ class PartialConvGenerator(nn.Module):
             z -> (3, H/k,W)
 
     '''
-    def __init__(self, opt, param):
+    def __init__(self, param):
         super(PartialConvGenerator, self).__init__()
 
         nfeatures = param['n_features']
@@ -310,14 +317,11 @@ class PartialConvGenerator(nn.Module):
         p = param['portion']
         kernel_size = param['kernel_size']
         stride = param['stride']
-        nb = opt.batch_size
         s_i = 0
 
-        stride_w = int(stride)
-        stride_h = int(stride * 1/p)
-
-        self.opt = opt
-        self.device = opt.device
+        self.ratio = int(1/p)
+        # stride_w = int(stride)
+        # stride_h = int(stride * 1/p)
 
         blocks = nn.ModuleList()        
 
@@ -325,13 +329,14 @@ class PartialConvGenerator(nn.Module):
         for i,nc in enumerate(nfeatures):
             # padding = 1 if i > 0 else 0
             blocks.append(nn.Sequential(
-                nn.ConvTranspose2d(c_in, nc, kernel_size, stride=(stride_w, stride_h)),
+                nn.ConvTranspose2d(c_in, nc, kernel_size, stride=stride, padding=(1,1)),
+                # nn.ConvTranspose2d(c_in, nc, kernel_size, stride=(stride_w, stride_h)),
                 # nn.BatchNorm2d(nc),
                 nn.ReLU(True),
             ))            
             c_in = nc
 
-        deconv_out = nn.ConvTranspose2d(c_in, 3, 2, stride=(stride_w, stride_h))
+        deconv_out = nn.ConvTranspose2d(c_in, 3, kernel_size, stride=stride, padding=(1,1))
         self.blocks = blocks
         self.deconv_out = deconv_out
         self.tanh = nn.Tanh()
@@ -340,17 +345,21 @@ class PartialConvGenerator(nn.Module):
         '''
             input: latent vector
             output: color nb, 3, h, w
-        '''
-        
-        nb, nz = x.shape[:2]        
-        y = x
+        '''        
+        y = x[...,None,None]
+        y = y.expand([*y.shape[:2], 2, 2 * self.ratio]).contiguous()
         for idx, block in enumerate(self.blocks):
-            y = block(y)
-            # print(f'----- netG layer {idx} -------')
+            # print(f'----- BEFORE netG layer {idx} -------')
             # print(y.shape)
+            y = block(y)
+            # print(f'----- AFTER netG layer {idx} -------')
+            # print(y.shape)
+            # import ipdb; ipdb.set_trace()
         y = self.deconv_out(y)
+        # print(f'----- FINAL netG layer {idx} -------')
+        # print(y.shape)
+        # import ipdb; ipdb.set_trace()
         y = self.tanh(y)
-
         return y, x
 
 
