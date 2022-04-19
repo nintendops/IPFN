@@ -126,6 +126,12 @@ def _get_input(res, dist_shift, opt, scale=1.0, shift=None):
     if shift is not None:
         return scale * coords + shift
 
+    #############################
+    # if np.random.rand() > 0.1:
+    #     return scale * coords
+
+    ############################
+    
     # if randomly applying shift
     if opt.model.input_type == '2d':
         shift = dist_shift.sample()[...,None,None]
