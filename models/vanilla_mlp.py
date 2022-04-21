@@ -52,6 +52,11 @@ class ImplicitGenerator(nn.Module):
         else:
             raise NotImplementedError(f"type of k type {self.k_type} is not recognized!")
 
+
+        # beta parameters
+        beta = torch.full(self.l, 1.0)
+        self.register_parameter('beta', nn.Parameter(beta)) 
+
     def getK(self):
         return self.K
 
@@ -80,7 +85,8 @@ class ImplicitGenerator(nn.Module):
             # no scaling
             x = x
 
-        x_encoding = H.positional_encoding(x, l=self.l)
+        # x_encoding = H.positional_encoding(x, l=self.l)
+        x_encoding = H.positional_encoding(x, l=self.l, self.beta)
         nb, nc, h, w = x_encoding.shape
 
         ### enable this if we also want to scale the noise as well (recommended during eval only)
