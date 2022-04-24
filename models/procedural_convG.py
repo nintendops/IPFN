@@ -14,6 +14,7 @@ class ConvGenerator(nn.Module):
         nb = opt.batch_size
         nz = param['nz']
         self.p = int(param['portion'] * opt.model.image_res)
+        self.res = opt.model.image_res
 
         # param for encoder
         param_encoder = param['encoder']
@@ -32,7 +33,7 @@ class ConvGenerator(nn.Module):
 
         self.opt = opt
         self.device = opt.device
-        self.rand_shape = [nb, nz]
+        self.rand_shape = [nb, nz, self.p // (2**4), opt.model.image_res // (2**4)]
         self.sampler = H.get_distribution_type(self.rand_shape, 'normal')
 
 
@@ -44,15 +45,25 @@ class ConvGenerator(nn.Module):
         bn, _, h, w = x.shape
 
         # keep the non-padded part of the reference image
-        source_img = x[:, :, :self.p]        
+        source_img = x[:, :, :(self.res - self.p)]        
         z = self.encoder(x)
+        if self.p < self.res:
+            z_slice = z[:, :, ((self.res - self.p) // (2**4)):]
+        else:
+            z_slice = z
+
         noise = self.sampler.sample().to(self.device)
-        z = torch.cat([z, noise], 1)
-        y, _ = self.generator(z)     
+        z_slice = torch.cat([z_slice, noise], 1)
+        y, _ = self.generator(z_slice)     
         # upsampling
         y = torch.nn.functional.interpolate(y, \
-                     size=[h - self.p,w], mode='bilinear')
-        composed_y = torch.cat([source_img, y], 2)
+                     size=[self.p,w], mode='bilinear')
+
+        if self.p < self.res:
+            composed_y = torch.cat([source_img, y], 2)
+        else:
+            composed_y = y
+
         return composed_y, z
 
 def build_model_from(opt, p, outfile_path=None):
@@ -60,7 +71,7 @@ def build_model_from(opt, p, outfile_path=None):
     model_param = {
         'portion' : p,
         'encoder' : {
-            'n_features': 64,
+            'n_features': 16,
             'c_in':3,
             'latent': 64,
             'stride': 2,
@@ -68,7 +79,7 @@ def build_model_from(opt, p, outfile_path=None):
             'non_linearity': 'relu',
         },
         'convG' : {
-            'n_features': [512, 256, 128, 64],
+            'n_features': [128, 64, 32],
             'stride':2,
             'kernel_size':4,
             'non_linearity': 'relu',

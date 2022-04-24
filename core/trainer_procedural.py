@@ -167,7 +167,7 @@ class ProceduralTrainer(BasicTrainer):
 
             data = next(self.dataset_iter)
 
-            data_real, data_ref, data_ref_original = data
+            data_real, data_ref_original, data_ref = data
 
             # nb, nc, hr, wr = data_real.shape
             # nb, _, href, wref = data_ref.shape

@@ -207,7 +207,7 @@ class TerrainImageDataset(Dataset):
     def zero_padding(self, img):
         # assume torch tensor input (3, h, w)
         h, w = img.shape[-2:]
-        p = int(h * self.p)
+        p = h - int(h * self.p)
         padded_img = torch.cat([img[:,:p], torch.zeros_like(img[:,p:])], 1)
         return padded_img
 

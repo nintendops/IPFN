@@ -282,12 +282,16 @@ class encoder_2d(nn.Module):
             nn.LeakyReLU(inplace=True),
             nn.Conv2d(4 * dim, 8 * dim, kernel_size, stride, 0),
             nn.LeakyReLU(inplace=True),
+            nn.Conv2d(8 * dim, latent_dim, 1, 1, 0),
+            nn.LeakyReLU(inplace=True),
         )
         self.blocks = blocks
         n_conv = 4
 
-        c_in = int(8 * dim * (res**2) / 4**n_conv)
-        self.linear = nn.Linear(c_in, latent_dim)
+        # c_in = int(8 * dim * (res**2) / 4**n_conv)
+        # self.linear = nn.Linear(c_in, latent_dim)
+
+
 
     def forward(self, x):
         bs = x.shape[0]
@@ -297,8 +301,8 @@ class encoder_2d(nn.Module):
             # print(f"Encoder: output tensor of size {x.shape}")
             # import ipdb; ipdb.set_trace()
 
-        x = x.view(bs,-1)
-        x = self.linear(x)
+        # x = x.view(bs,-1)
+        # x = self.linear(x)
         return x   
 
 
@@ -346,8 +350,10 @@ class PartialConvGenerator(nn.Module):
             input: latent vector
             output: color nb, 3, h, w
         '''        
-        y = x[...,None,None]
-        y = y.expand([*y.shape[:2], 2, 2 * self.ratio]).contiguous()
+        # y = x[...,None,None]
+        # y = y.expand([*y.shape[:2], 2, 2 * self.ratio]).contiguous()
+        y = x
+
         for idx, block in enumerate(self.blocks):
             # print(f'----- BEFORE netG layer {idx} -------')
             # print(y.shape)
