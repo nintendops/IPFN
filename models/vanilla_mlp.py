@@ -54,8 +54,9 @@ class ImplicitGenerator(nn.Module):
 
 
         # beta parameters
-        beta = torch.full(self.l, 1.0)
-        self.register_parameter('beta', nn.Parameter(beta)) 
+        self.beta = None
+        # beta = torch.full([self.l], 1.0)
+        # self.register_parameter('beta', nn.Parameter(beta)) 
 
     def getK(self):
         return self.K
@@ -86,7 +87,7 @@ class ImplicitGenerator(nn.Module):
             x = x
 
         # x_encoding = H.positional_encoding(x, l=self.l)
-        x_encoding = H.positional_encoding(x, l=self.l, self.beta)
+        x_encoding = H.positional_encoding(x, l=self.l, beta=self.beta)
         nb, nc, h, w = x_encoding.shape
 
         ### enable this if we also want to scale the noise as well (recommended during eval only)
