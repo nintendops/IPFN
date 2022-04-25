@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import utils.helper as H
 import core.network_blocks as M
+from torch.nn import init
 
 
 class bigGANGenerator(nn.Module):
@@ -29,9 +30,9 @@ class bigGANGenerator(nn.Module):
 
         # main blocks
         # vanilla version of conv2d
-        conv = functools.partial(F.conv2d, kernel_size=3, padding=1)
+        conv = functools.partial(nn.Conv2d, kernel_size=3, padding=1)
         # vanilla version of bn
-        bn = functools.partial(F.batch_norm)
+        bn = functools.partial(nn.BatchNorm2d)
         activation = nn.ReLU(inplace=False)
 
         blocks = []
@@ -54,7 +55,9 @@ class bigGANGenerator(nn.Module):
         self.blocks = nn.ModuleList(blocks)
 
         # output layer
-        self.output_layer = nn.Sequential(bn, activation, conv(self.param['convG']['out_channels'][-1], 3))
+        self.output_layer = nn.Sequential(nn.BatchNorm2d(self.param['convG']['out_channels'][-1]), 
+                                          activation, 
+                                          conv(self.param['convG']['out_channels'][-1], 3))
 
         self.init_weights()
 

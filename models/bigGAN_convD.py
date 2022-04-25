@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import utils.helper as H
 import core.network_blocks as M
+from torch.nn import init
 
 
 class bigGANDiscriminator(nn.Module):
@@ -19,7 +20,7 @@ class bigGANDiscriminator(nn.Module):
 
         # main blocks
         # vanilla version of conv2d
-        conv = functools.partial(F.conv2d, kernel_size=3, padding=1)
+        conv = functools.partial(nn.Conv2d, kernel_size=3, padding=1)
         self.activation = nn.ReLU(inplace=False)
 
         blocks = []
@@ -50,14 +51,14 @@ class bigGANDiscriminator(nn.Module):
         self.blocks = nn.ModuleList(blocks)
 
         # output layer
-        self.linear = self.which_linear(self.param['convD']['out_channels'][-1], output_dim)
+        self.linear = nn.Linear(self.param['convD']['out_channels'][-1], output_dim)
 
         self.init_weights()
 
     def forward(self, x):
         h = x
         for index, block in enumerate(self.blocks):
-            h = block(x)
+            h = block(h)
         
         # Apply global sum pooling as in SN-GAN
         h = torch.sum(self.activation(h), [2, 3])
