@@ -23,8 +23,8 @@ class ProceduralTrainer(BasicTrainer):
         self._setup_visualizer()
 
     def _initialize_settings(self):        
-        self.modelG = 'procedural_convG'
-        self.modelD = 'vanilla_netD'
+        self.modelG = 'bigGAN_convG'
+        self.modelD = 'bigGAN_convD'
         self.summary.register(self._get_summary())
         self.epoch_counter = 0
         self.iter_counter = 0
@@ -72,9 +72,9 @@ class ProceduralTrainer(BasicTrainer):
         self.logger.log('Setup', 'Setup optimizer!')
         # torch.autograd.set_detect_anomaly(True)
         self.optimizerG = optim.Adam(self.modelG.parameters(), 
-                                    lr=self.opt.train_lr.init_lr, betas=(0.5, 0.9))        
+                                    lr=5e-5, betas=(0.5, 0.9))        
         self.optimizerD = optim.Adam(self.modelD.parameters(), 
-                                    lr=self.opt.train_lr.init_lr, betas=(0.5, 0.9))
+                                    lr=2e-4, betas=(0.5, 0.9))
         self.logger.log('Setup', 'Optimizer all-set!')
 
 
@@ -168,13 +168,6 @@ class ProceduralTrainer(BasicTrainer):
             data = next(self.dataset_iter)
 
             data_real, data_ref_original, data_ref = data
-
-            # nb, nc, hr, wr = data_real.shape
-            # nb, _, href, wref = data_ref.shape
-            # assert wref == wr and hr > href
-            # # padding reference image with zeros
-            # paddings = torch.zeros([nb, nc, href-hr, wr])
-            # data_patch = torch.cat([paddings, data_ref],2)
 
             self.modelD.zero_grad()
             

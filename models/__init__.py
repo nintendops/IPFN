@@ -1,1 +1,1 @@
-from . import vanilla_mlp, sdf_mlp, vanilla_netD, sdf_netD, procedural_convG
+from . import vanilla_netD, procedural_convG, bigGAN_convG, bigGAN_convD

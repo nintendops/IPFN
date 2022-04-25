@@ -52,9 +52,9 @@ train_args.add_argument('-e', '--num-epochs', type=int, default=100,
                         help='maximum number of training epochs')
 train_args.add_argument('-i', '--num-iterations', type=int, default=None,
                         help='maximum number of training iterations')
-train_args.add_argument('--critic-steps', type=int, default=5,
+train_args.add_argument('--critic-steps', type=int, default=2,
                         help='steps to train discriminator per iteration')
-train_args.add_argument('--g-steps', type=int, default=5,
+train_args.add_argument('--g-steps', type=int, default=1,
                         help='steps to train generator per iteration')
 train_args.add_argument('-b', '--batch-size', type=int, default=4,
                         help='batch size to train')

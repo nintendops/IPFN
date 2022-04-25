@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+from torch.nn import Parameter as P
 from torch import nn
 import functools
 from core.core_layers import *
@@ -15,166 +16,122 @@ class transformer_block(nn.Module):
         x = x.permute([0,3,1,2]).contiguous()
         return x
 
+# BigGAN Generator blocks
+# Note that this class assumes the kernel size and padding (and any other
+# settings) have been selected in the main generator module and passed in
+# through the which_conv arg. Similar rules apply with which_bn (the input
+# size [which is actually the number of channels of the conditional info] must 
+# be preselected)
 
-# mlp generator
-class netG_mlp_v1(nn.Module):
-    def __init__(self, param, dim=2, end_activation='tanh'):
-        super(netG_mlp_v1, self).__init__()
-        self.param = param
+class GBlock(nn.Module):
+  def __init__(self, in_channels, out_channels,
+               which_conv=nn.Conv2d, which_bn=F.batch_norm, activation=nn.ReLU(inplace=False), 
+               upsample=None):
+    super(GBlock, self).__init__()
 
-        if dim == 2:
-            ConvBlock = Conv2dBlock
-        elif dim == 3:
-            ConvBlock = Conv3dBlock
-        else:
-            raise NotImplementedError(f"a dimension of {dim} is not supported!")
-        ###### params##############
-        n_features = param['n_features']
-        nf_in = param['c_in']
-        nf_out = param['c_out']
-        non_linearity = param['non_linearity']
-        bn = param['bn']
-        # dropout = param['dropout_ratio']
-        ##########################
+    # upsample = functools.partial(F.interpolate, scale_factor=2)
+    
+    self.in_channels, self.out_channels = in_channels, out_channels
+    self.which_conv, self.which_bn = which_conv, which_bn
+    self.activation = activation
+    self.upsample = upsample
+    # Conv layers
+    self.conv1 = self.which_conv(self.in_channels, self.out_channels)
+    self.conv2 = self.which_conv(self.out_channels, self.out_channels)
+    self.learnable_sc = in_channels != out_channels or upsample
+    if self.learnable_sc:
+      self.conv_sc = self.which_conv(in_channels, out_channels, 
+                                     kernel_size=1, padding=0)
+    # Batchnorm layers
+    self.bn1 = self.which_bn(in_channels)
+    self.bn2 = self.which_bn(out_channels)
+    # upsample layers
+    self.upsample = upsample
 
-        self.blocks = nn.ModuleList()
-        c = nf_in
-        for idx, c_out in enumerate(n_features):
-            block_i = ConvBlock(c, c_out, 1, 1, 0, bn, non_linearity)
-            self.blocks.append(block_i)
-            c = c_out
+  def forward(self, x):
+    h = self.activation(self.bn1(x))
+    if self.upsample:
+      h = self.upsample(h)
+      x = self.upsample(x)
+    h = self.conv1(h)
+    h = self.activation(self.bn2(h))
+    h = self.conv2(h)
+    if self.learnable_sc:       
+      x = self.conv_sc(x)
+    return h + x
 
-        self.last_conv = ConvBlock(c, nf_out, 1, 1, 0, None, None)
-        self.blocks.append(self.last_conv)
-        self.activation = nn.ReLU() if end_activation == 'relu' else nn.Tanh()
+# Residual block for the discriminator
+class DBlock(nn.Module):
+  def __init__(self, in_channels, out_channels, which_conv=nn.Conv2d, wide=True,
+               preactivation=False, activation=None, downsample=None,):
+    super(DBlock, self).__init__()
+    self.in_channels, self.out_channels = in_channels, out_channels
+    # If using wide D (as in SA-GAN and BigGAN), change the channel pattern
+    self.hidden_channels = self.out_channels if wide else self.in_channels
+    self.which_conv = which_conv
+    self.preactivation = preactivation
+    self.activation = activation
+    self.downsample = downsample
+        
+    # Conv layers
+    self.conv1 = self.which_conv(self.in_channels, self.hidden_channels)
+    self.conv2 = self.which_conv(self.hidden_channels, self.out_channels)
+    self.learnable_sc = True if (in_channels != out_channels) or downsample else False
+    if self.learnable_sc:
+      self.conv_sc = self.which_conv(in_channels, out_channels, 
+                                     kernel_size=1, padding=0)
+  def shortcut(self, x):
+    if self.preactivation:
+      if self.learnable_sc:
+        x = self.conv_sc(x)
+      if self.downsample:
+        x = self.downsample(x)
+    else:
+      if self.downsample:
+        x = self.downsample(x)
+      if self.learnable_sc:
+        x = self.conv_sc(x)
+    return x
+    
+  def forward(self, x):
+    if self.preactivation:
+      h = F.relu(x)
+    else:
+      h = x    
+    h = self.conv1(h)
+    h = self.conv2(self.activation(h))
+    if self.downsample:
+      h = self.downsample(h)        
+    return h + self.shortcut(x)
 
-    def forward(self, x, y=None):
-        for block in self.blocks:
-            x = block(x)
-        x = self.activation(x)
-        if y is not None:
-            x = x + y
-        return x
 
-# multihead mlp generator
-class netG_mlp_multihead(nn.Module):
-    def __init__(self, param, dim=2, end_activation='tanh'):
-        super(netG_mlp_multihead, self).__init__()
-        self.param = param
-
-        if dim == 2:
-            ConvBlock = Conv2dBlock
-        elif dim == 3:
-            ConvBlock = Conv3dBlock
-        else:
-            raise NotImplementedError(f"a dimension of {dim} is not supported!")
-        ###### params##############
-        n_features = param['n_features']
-        nf_in = param['c_in']
-        nf_out = param['c_out']
-        non_linearity = param['non_linearity']
-        bn = param['bn']
-        # dropout = param['dropout_ratio']
-        ##########################
-
-        share_blocks = nn.ModuleList()
-        c = nf_in
-        for idx, c_out in enumerate(n_features):
-            block_i = ConvBlock(c, c_out, 1, 1, 0, bn, non_linearity)
-            share_blocks.append(block_i)
-            c = c_out
-        self.share_blocks = share_blocks
-
-        multi_blocks = nn.ModuleList()
-        for i in range(nf_out//3):
-            blocks = nn.ModuleList()
-            for idx, c_out in enumerate(n_features[:3]):
-                block_i = ConvBlock(c, c_out, 1, 1, 0, bn, non_linearity)
-                blocks.append(block_i)
-                c = c_out
-            last_conv = ConvBlock(c, 3, 1, 1, 0, None, None)
-            blocks.append(last_conv)
-            multi_blocks.append(blocks)
-        # self.last_convs = nn.ModuleList([ConvBlock(c, 3, 1, 1, 0, None, None) for i in range(nf_out//3)])
-        # self.blocks.append(self.last_conv)
-        self.blocks = multi_blocks
-        self.activation = nn.ReLU() if end_activation == 'relu' else nn.Tanh()
-
-    def forward(self, x, y=None):
-        # share network + multibranch networks + skip connection
-        for block in self.share_blocks:
-            x = block(x)
-        xs = []        
-        for branch in self.blocks:
-            feat = x
-            for idx, block in enumerate(branch):
-                feat = block(feat)
-                if idx == len(branch) - 2:
-                    feat = feat + x
-            xs.append(feat)
-        xs = torch.cat(xs, 1)
-        xs = self.activation(xs)
-        if y is not None:
-            xs = xs + y
-        return xs
-
-class netG_mlp_unet(nn.Module):
-    def __init__(self, param):
-        super(netG_mlp_unet, self).__init__()
-        self.param = param
-
-        ###### params##############
-        n_feautres = param['n_features']
-        nf_in = param['c_in']
-        nf_out = param['c_out']
-        non_linearity = param['non_linearity']
-        bn = param['bn']
-        # dropout = param['dropout_ratio']
-        ##########################
-
-        self.blocks = nn.ModuleList()
-        c = nf_in
-        for idx, c_out in enumerate(n_feautres):
-            block_i = Conv2dBlock(c, c_out, 1, 1, 0, bn, non_linearity)
-            self.blocks.append(block_i)
-            c = c_out
-
-        self.last_conv = Conv2dBlock(c + 3, nf_out, 1, 1, 0, None, None)
-        self.blocks.append(self.last_conv)
-        self.tanh = nn.Tanh()
-
-    def forward(self, x, y):
-        # skip_x = x[:,:3]
-        for idx, block in enumerate(self.blocks):
-            # if idx == len(self.blocks) - 1:
-            #     x = torch.cat([x,y],1)
-            x = block(x)
-        x = self.tanh(x)
-        return x + y
-
-class netG_mlp_ns(nn.Module):
-    def __init__(self, param):
-        super(netG_mlp_ns, self).__init__()
-        self.param = param
-
-        ###### params for encoder ##############
-        param_encoder = {
-            'n_features': param['n_features_encoder'],
-            'c_in': param['g_in'],
-            'c_out': param['n_features'][0],
-            'non_linearity' : param['non_linearity'],
-            'bn' : param['bn'],
-        }
-        ##########################################
-
-        self.encoder = netG_mlp_v1(param_encoder, 'relu')
-        param['c_in'] = param['g_in'] + param['n_features'][0] + param['c_in']
-        self.generator = netG_mlp_v1(param)
-
-    def forward(self, x, g):
-        g_feat = self.encoder(g)
-        x = torch.cat([x, g_feat, g],1)
-        return self.generator(x)
+# A non-local block as used in SA-GAN
+class Attention(nn.Module):
+  def __init__(self, ch, which_conv=nn.Conv2d, name='attention'):
+    super(Attention, self).__init__()
+    # Channel multiplier
+    self.ch = ch
+    self.which_conv = which_conv
+    self.theta = self.which_conv(self.ch, self.ch // 8, kernel_size=1, padding=0, bias=False)
+    self.phi = self.which_conv(self.ch, self.ch // 8, kernel_size=1, padding=0, bias=False)
+    self.g = self.which_conv(self.ch, self.ch // 2, kernel_size=1, padding=0, bias=False)
+    self.o = self.which_conv(self.ch // 2, self.ch, kernel_size=1, padding=0, bias=False)
+    # Learnable gain parameter
+    self.gamma = P(torch.tensor(0.), requires_grad=True)
+  def forward(self, x):
+    # Apply convs
+    theta = self.theta(x)
+    phi = F.max_pool2d(self.phi(x), [2,2])
+    g = F.max_pool2d(self.g(x), [2,2])    
+    # Perform reshapes
+    theta = theta.view(-1, self. ch // 8, x.shape[2] * x.shape[3])
+    phi = phi.view(-1, self. ch // 8, x.shape[2] * x.shape[3] // 4)
+    g = g.view(-1, self. ch // 2, x.shape[2] * x.shape[3] // 4)
+    # Matmul and softmax to get attention maps
+    beta = F.softmax(torch.bmm(theta.transpose(1, 2), phi), -1)
+    # Attention map times g path
+    o = self.o(torch.bmm(g, beta.transpose(1,2)).view(-1, self.ch // 2, x.shape[2], x.shape[3]))
+    return self.gamma * o + x
 
 
 # discriminator
@@ -367,10 +324,6 @@ class PartialConvGenerator(nn.Module):
         # import ipdb; ipdb.set_trace()
         y = self.tanh(y)
         return y, x
-
-
-
-
 
 
 class ResnetBlock(nn.Module):
