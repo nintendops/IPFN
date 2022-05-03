@@ -43,8 +43,9 @@ class TextureImageDataset(Dataset):
             self.crop_res = int(opt.model.crop_res)
 
         #########################
-        transform_type = "positioned_crop"
-        #########################
+        # transform_type = "positioned_crop"
+        transform_type = "default"
+        ########################
 
         self.initialize_transform(transform_type)
 
@@ -179,7 +180,7 @@ class TerrainImageDataset(Dataset):
         self.transforms = transforms.Compose([
             transforms.ToPILImage(),
             transforms.Resize([self.default_h,self.default_w]),
-            transforms.RandomCrop(self.crop_res),
+            transforms.CenterCrop(self.crop_res),
             # transforms.RandomHorizontalFlip(p=0.5),
             # transforms.RandomVerticalFlip(p=0.5),
             transforms.ToTensor(),
