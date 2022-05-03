@@ -1,10 +1,27 @@
 import torch
 import torch.distributions as dists
+import torch.nn.functional as F
 import numpy as np
 import kornia
 import math
 
 PI = np.pi
+
+
+def my_interpolate(z, p=2):
+    nb, nd, h, w = z.shape
+    assert h > p and w > p
+    z = F.interpolate(z, scale_factor=p)
+
+    cropped_z = []
+    for i in range(nb):
+        crop_h = np.random.randint(0,p*h - h)    
+        crop_w = np.random.randint(0,p*w - w)
+        cropped_z += z[i,:,crop_h:crop_h + h, crop_w:crop_w+w]
+
+    z = torch.stack(cropped_z, 0)
+    return z.contiguous()
+
 
 def exp_distribution(x, sigma=0.05):
     # maps a random distribution in [-1,1] to be biased towards the boundaries

@@ -72,6 +72,10 @@ class bigGANGenerator(nn.Module):
         h = self.linear(h)
         h = h.view(h.shape[0], -1, self.bottom_width, self.bottom_width)
 
+        ###############################
+        h = H.my_interpolate(h)
+        ################################
+
         # Loop over blocks
         for index, block in enumerate(self.blocks):
             h = block(h)
