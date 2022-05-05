@@ -8,18 +8,20 @@ import math
 PI = np.pi
 
 
-def my_interpolate(z, p=2):
+def my_interpolate(z, p=2, k=4):
     nb, nd, h, w = z.shape
     assert h > p and w > p
-    z = F.interpolate(z, scale_factor=p)
+    z = F.interpolate(z, scale_factor=p*k)
 
-    cropped_z = []
+    cropped_zs = []
     for i in range(nb):
-        crop_h = np.random.randint(0,p*h - h)    
-        crop_w = np.random.randint(0,p*w - w)
-        cropped_z += z[i,:,crop_h:crop_h + h, crop_w:crop_w+w]
-
-    z = torch.stack(cropped_z, 0)
+        crop_h = np.random.randint(0,k*(p*h - h))    
+        crop_w = np.random.randint(0,k*(p*w - w))
+        cropped_z = z[i,:,crop_h:crop_h + k*h, crop_w:crop_w+ k*w].unsqueeze(0)
+        cropped_z = F.interpolate(cropped_z, scale_factor=1/k)
+        cropped_zs += cropped_z
+        
+    z = torch.stack(cropped_zs, 0)
     return z.contiguous()
 
 
