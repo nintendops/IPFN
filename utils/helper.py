@@ -8,7 +8,7 @@ import math
 PI = np.pi
 
 
-def my_interpolate(z, p=2, k=4):
+def upsample_and_crop(z, p=2, k=1):
     nb, nd, h, w = z.shape
     assert h > p and w > p
     z = F.interpolate(z, scale_factor=p*k)
