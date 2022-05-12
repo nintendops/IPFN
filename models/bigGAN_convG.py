@@ -73,7 +73,7 @@ class bigGANGenerator(nn.Module):
         h = h.view(h.shape[0], -1, self.bottom_width, self.bottom_width)
 
         ###############################
-        # h = H.upsample_and_crop(h)
+        h = H.upsample_and_crop(h, k=16)
         ################################
 
         # Loop over blocks
@@ -83,7 +83,7 @@ class bigGANGenerator(nn.Module):
         h = self.output_layer(h)
 
         ###############################
-        h = H.upsample_and_crop(h)
+        # h = H.upsample_and_crop(h)
         ################################
 
         return torch.tanh(h), z

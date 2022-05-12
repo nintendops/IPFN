@@ -180,6 +180,7 @@ class TerrainImageDataset(Dataset):
         self.transforms = transforms.Compose([
             transforms.ToPILImage(),
             transforms.Resize([self.default_h,self.default_w]),
+            # transforms.RandomCrop(self.crop_res),
             transforms.CenterCrop(self.crop_res),
             # transforms.RandomHorizontalFlip(p=0.5),
             # transforms.RandomVerticalFlip(p=0.5),
