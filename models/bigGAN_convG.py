@@ -18,15 +18,17 @@ class bigGANGenerator(nn.Module):
         self.dim_z = param['nz']
         self.bottom_width = 4
 
+        self.linear_layer_at_first = False
 
         # random variable generator
-        rand_shape = [self.opt.batch_size, self.dim_z]
+        if self.linear_layer_at_first:
+            rand_shape = [self.opt.batch_size, self.dim_z]
+            # first linear layer
+            self.linear = nn.Linear(self.dim_z, param['convG']['in_channels'][0] * (self.bottom_width**2))
+        else:
+            rand_shape = [self.opt.batch_size, self.dim_z, self.bottom_width, self.bottom_width]
+
         self.sampler = H.get_distribution_type(rand_shape, 'normal')
-
-        # first linear layer
-        self.linear = nn.Linear(self.dim_z, param['convG']['in_channels'][0] * (self.bottom_width**2))
-
-
 
         # main blocks
         # vanilla version of conv2d
@@ -69,8 +71,10 @@ class bigGANGenerator(nn.Module):
 
         z = self.sampler.sample().to(self.opt.device)
         h = z
-        h = self.linear(h)
-        h = h.view(h.shape[0], -1, self.bottom_width, self.bottom_width)
+        
+        if self.linear_layer_at_first:
+            h = self.linear(h)
+            h = h.view(h.shape[0], -1, self.bottom_width, self.bottom_width)
 
         ###############################
         h = H.upsample_and_crop(h, k=16)
