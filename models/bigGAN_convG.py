@@ -18,15 +18,17 @@ class bigGANGenerator(nn.Module):
         self.dim_z = param['nz']
         self.bottom_width = 4
 
-        self.linear_layer_at_first = False
-
+        self.linear_layer_at_first = True
+        self.crop_index = 3
+        
+        
         # random variable generator
         if self.linear_layer_at_first:
             rand_shape = [self.opt.batch_size, self.dim_z]
             # first linear layer
             self.linear = nn.Linear(self.dim_z, param['convG']['in_channels'][0] * (self.bottom_width**2))
         else:
-            rand_shape = [self.opt.batch_size, self.dim_z, self.bottom_width, self.bottom_width]
+            rand_shape = [self.opt.batch_size, param['convG']['in_channels'][0], self.bottom_width, self.bottom_width]
 
         self.sampler = H.get_distribution_type(rand_shape, 'normal')
 
@@ -76,14 +78,15 @@ class bigGANGenerator(nn.Module):
             h = self.linear(h)
             h = h.view(h.shape[0], -1, self.bottom_width, self.bottom_width)
 
-        ###############################
-        h = H.upsample_and_crop(h, k=16)
-        ################################
-
         # Loop over blocks
         for index, block in enumerate(self.blocks):
+            if self.crop_index == index:
+                h = H.upsample_and_crop(h, k=4)                
             h = block(h)
 
+        if self.crop_index == -1:
+            h = H.upsample_and_crop(h, k=4)                
+            
         h = self.output_layer(h)
 
         ###############################
