@@ -18,7 +18,7 @@ net_args.add_argument('--input-type', type=str, default='2d',help=' 2d | 3d, whi
 net_args.add_argument('--crop-res', type=float, default=128, help='either a scale or an integer, defining the size of the cropped patches')
 net_args.add_argument('--source-scale', type=float, default=1.0, help='downsampling scale of the input')
 net_args.add_argument('--channel-dim', type=int, default=-1, help='number of channels in the input image (image default to 3, volume default to 1')
-net_args.add_argument('--latent-dim', type=int, default=5)
+net_args.add_argument('--latent-dim', type=int, default=10)
 net_args.add_argument('--noise', type=str, default='stationary',
                       help='type of noise added to the implicit field: const | stationary')
 net_args.add_argument('--noise-factor', type=float, default=1.0),
@@ -26,7 +26,7 @@ net_args.add_argument('--noise-interpolation', type=str, default='gaussian',
                       help='interpolation approach')
 net_args.add_argument('--guidance-feature-type', type=str, default='none', help="type of guidance features used in conditional training: none | x | y | custom")
 net_args.add_argument('--sigma', type=float, default=0.2, help='sigma for latent field interpolation')
-net_args.add_argument('--k-type', type=str, default='scale', help='scale | affine')
+net_args.add_argument('--k-type', type=str, default='affine', help='scale | affine')
 net_args.add_argument('--k-threshold', type=float, default=-1)
 net_args.add_argument('--warp-noise', action='store_true')
 
