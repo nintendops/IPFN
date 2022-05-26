@@ -89,17 +89,19 @@ def positional_encoding(x, l=5, beta=None):
     res = x.shape[2:]
     x = x.unsqueeze(2).expand(bs,dim,l,*res)
     octaves = 2**(torch.arange(l)).to(x.device)
+
     if beta is not None:        
-        octaves = octaves[None] * beta
-        b, _ = octaves.shape
-        octaves = octaves[:,None].expand(b,bs//b,l).reshape(-1,l).contiguous()
-        for r in res:
-            octaves = octaves.unsqueeze(-1)
-        x = x * octaves[:,None,...] * PI
-    else:
-        for r in res:
-            octaves = octaves.unsqueeze(-1)
-        x = x * octaves[None,None,...] * PI
+        octaves = octaves * beta
+        # octaves = octaves[None] * beta
+        # b, _ = octaves.shape
+        # octaves = octaves[:,None].expand(b,bs//b,l).reshape(-1,l).contiguous()
+        # for r in res:
+        #     octaves = octaves.unsqueeze(-1)
+        # x = x * octaves[:,None,...] * PI
+
+    for r in res:
+        octaves = octaves.unsqueeze(-1)
+    x = x * octaves[None,None,...] * PI
     x = torch.cat((torch.sin(x).unsqueeze(2), torch.cos(x).unsqueeze(2)),2)
     return x.reshape(bs,-1,*res)
 
