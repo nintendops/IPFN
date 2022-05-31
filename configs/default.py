@@ -15,7 +15,7 @@ exp_args.add_argument('-s', '--seed', type=int, default=666, help='random seed')
 # Network arguments
 net_args = parser.add_parser("model")
 net_args.add_argument('--input-type', type=str, default='2d',help=' 2d | 3d, which corresponds to either an image or a volume')
-net_args.add_argument('--crop-res', type=float, default=256, help='either a scale or an integer, defining the size of the cropped patches')
+net_args.add_argument('--crop-res', type=float, default=128, help='either a scale or an integer, defining the size of the cropped patches')
 net_args.add_argument('--source-scale', type=float, default=0.1, help='downsampling scale of the input')
 net_args.add_argument('--channel-dim', type=int, default=-1, help='number of channels in the input image (image default to 3, volume default to 1')
 net_args.add_argument('--latent-dim', type=int, default=64)
@@ -40,7 +40,7 @@ dataset_args.add_argument('--sdf-scale', type=float, default=10.0)
 
 visdom_args = parser.add_parser("visdom")
 visdom_args.add_argument( '--display-id', type=int, default=1)
-visdom_args.add_argument( '--address', type=str, default="http://localhost")
+visdom_args.add_argument( '--address', type=str, default="172.16.33.116") # default="http://localhost")
 visdom_args.add_argument( '--port', type=int, default=8097)
 
 
@@ -66,7 +66,7 @@ train_args.add_argument('-c','--coarse-path', type=str, default=None,
                         help='Training using the pre-trained coarse model')
 train_args.add_argument('--save-freq', type=int, default=1,
                         help='the frequency of saving the checkpoint (epochs)')
-train_args.add_argument('--log-freq', type=int, default=10,
+train_args.add_argument('--log-freq', type=int, default=4,
                         help='the frequency of logging training info (iters)')
 train_args.add_argument('--eval-freq', type=int, default=1,
                         help='frequency of evaluation (epochs)')

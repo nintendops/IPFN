@@ -19,7 +19,7 @@ class bigGANGenerator(nn.Module):
         self.bottom_width = 4
 
         self.linear_layer_at_first = True
-        self.crop_index = 3
+        self.crop_index = 0
         
         
         # random variable generator
