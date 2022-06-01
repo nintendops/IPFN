@@ -5,6 +5,8 @@ import cv2
 import imageio
 import torch
 import torchvision
+from PIL import Image
+
 
 def convert_to_int(array):
     array *= 255
@@ -51,15 +53,26 @@ def pytorch_to_numpy(array, is_batch=True, flip=True):
 
     return array
 
-def write_gif(path, images, n_row, duration=0.1, loop=0):
+def write_gif_torch(path, images, n_row=1, duration=0.05, loop=0):
     np_images = []
     for image in images:
-        image = torchvision.utils.make_grid(image, n_row)
+        # image = torchvision.utils.make_grid(image, n_row)
         image = pytorch_to_numpy(image, is_batch=False)
         image = convert_to_int(image)
         np_images.append(image)
-
     imageio.mimwrite(path, np_images, duration=duration, loop=loop)
+
+def write_gif(path, images, n_row=1, duration=0.05, loop=0):
+    if images[0].shape[0] == 3:
+        images = [convert_to_int(i.transpose(1,2,0)) for i in images]        
+    imageio.mimwrite(path, images, duration=duration, loop=loop)
+
+
+def make_gif_from_files(frame_folder, output_path):
+    frames = [Image.open(image) for image in glob.glob(f"{frame_folder}/*")]
+    frame_one = frames[0]
+    frame_one.save(f"{output_path}.gif", format="GIF", append_images=frames,
+               save_all=True, duration=100, loop=0)
 
 
 def write_images(path, images, n_row=1):

@@ -26,7 +26,7 @@ net_args.add_argument('--noise-interpolation', type=str, default='gaussian',
                       help='interpolation approach')
 net_args.add_argument('--guidance-feature-type', type=str, default='none', help="type of guidance features used in conditional training: none | x | y | custom")
 net_args.add_argument('--sigma', type=float, default=0.2, help='sigma for latent field interpolation')
-net_args.add_argument('--k-type', type=str, default='affine', help='scale | affine')
+net_args.add_argument('--k-type', type=str, default='scale', help='scale | affine')
 net_args.add_argument('--k-threshold', type=float, default=-1)
 net_args.add_argument('--warp-noise', action='store_true')
 
@@ -92,7 +92,7 @@ loss_args.add_argument('--loss-type', type=str, default='soft',
 
 # Eval arguments
 eval_args = parser.add_parser("eval")
-eval_args.add_argument('--test-scale', type=float, default=4.0, help="scale for the synthesized pattern during inference")
+eval_args.add_argument('--test-scale', type=float, default=16.0, help="scale for the synthesized pattern during inference")
 
 # Test arguments
 test_args = parser.add_parser("test")

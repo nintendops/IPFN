@@ -388,9 +388,25 @@ class IPFNTrainer(BasicTrainer):
                 self.vis.yell(f"Getting ready to test! Start in {5-i}...")
                 time.sleep(1)
             
+            # self.vis.yell(f"zomming test!")
+            # max_res = 16.0
+            # zoom_images = []
+            # for i in np.arange(4.0, max_res, 0.05):
+            #     g_in = H._get_input(self.crop_size, None, self.opt, scale=i, shift=0.0)
+            #     recon, z = self.modelG(g_in, noise_factor=self.opt.model.noise_factor, fix_sample=True)
+            #     recon_np = V.tensor_to_visual(recon)
+            #     self.visuals = {
+            #                     'Zooming test': recon_np,\
+            #     }
+            #     zoom_images.append(recon_np)
+            #     self.vis.display_current_results(self.visuals,10)
             
+
+            # io.write_gif(os.path.join(image_path, 'sample_zoom.gif'), zoom_images)
+            # import ipdb; ipdb.set_trace()
+
             self.vis.yell(f"Random synthesized pattern at {self.scale_factor}X size!")
-            sample = 40
+            sample = 10
 
             for i in range(sample):
 
@@ -402,14 +418,13 @@ class IPFNTrainer(BasicTrainer):
                     g_in = H._get_input(self.crop_size, self.dist_shift, self.opt, scale=self.scale_factor)
                 recon, z = self.modelG(g_in, noise_factor=self.opt.model.noise_factor)
 
-
                 self.visuals = {
                                 'generated image': V.tensor_to_visual(recon),\
                                 'noise_visual': V.tensor_to_visual(z[:,:3]),
                 }
                 self.vis.display_current_results(self.visuals)
                 
-                filename = f"sample_idx{i}.png"
+                filename = f"sample_{self.scale_factor}x_idx{i}.png"
                 io.write_images(os.path.join(image_path,filename),V.tensor_to_visual(recon),1)
                 time.sleep(1)
 
