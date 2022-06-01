@@ -225,6 +225,12 @@ class TerrainImageDataset(Dataset):
         padded_img = torch.cat([img[:,:p], torch.zeros_like(img[:,p:])], 1)
         return padded_img
 
+    def center_cropping(self, img, scale_factor=0.5):
+        h, w = img.shape[-2:]
+        hc = int(scale_factor * h)
+        wc = int(scale_factor * w)
+        return img[:, h//2 - hc//2:h//2 + hc//2, w//2 - wc//2:w//2 + wc//2]
+
     def _load_img(self, idx, mode='crop'):
         transform = self.transforms if mode == 'crop' else self.transforms_original
 
@@ -244,5 +250,7 @@ class TerrainImageDataset(Dataset):
         
         real_img = self._load_img(idx)
         ref_img = self._load_img(self.ref_idx, mode='original')        
-        ref_img_padded = self.zero_padding(ref_img)
+        
+        # ref_img_padded = self.zero_padding(ref_img)
+        ref_img_padded = self.center_cropping(ref_img)
         return real_img, ref_img, ref_img_padded

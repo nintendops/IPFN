@@ -21,6 +21,9 @@ class bigGANGenerator(nn.Module):
         self.linear_layer_at_first = True
         self.crop_index = 0
         
+        self.padding_func = None
+        # self.downsample_func = nn.AvgPool2d(2)
+
         
         # random variable generator
         if self.linear_layer_at_first:
@@ -39,7 +42,9 @@ class bigGANGenerator(nn.Module):
         bn = functools.partial(nn.BatchNorm2d)
         activation = nn.ReLU(inplace=False)
 
-        blocks = []
+        blocks_decoder = []
+        blocks_encoder = []
+        i = 0
 
         for c_in, c_out, upsample, res in zip( self.param['convG']['in_channels'],
                                                self.param['convG']['out_channels'],
@@ -47,16 +52,30 @@ class bigGANGenerator(nn.Module):
                                                self.param['convG']['resolution']):
 
             upsample_func = functools.partial(F.interpolate, scale_factor=2) if upsample else None
+            downsample_func =  nn.AvgPool2d(2) if upsample else None
 
             # conv layer
-            blocks += [M.GBlock(c_in, c_out, which_conv=conv, which_bn=bn, upsample=upsample_func)]
+            blocks_encoder += [ M.DBlock(
+                                c_out, 
+                                c_in, 
+                                which_conv=conv, 
+                                wide=True, 
+                                activation = activation,
+                                preactivation = False,
+                                downsample=downsample_func)]
+
+            blocks_decoder += [ M.GBlock(c_in, c_out, which_conv=conv, which_bn=bn, upsample=upsample_func)]
 
             # attention layer
             if self.param['convG']['attention'][res]:
                 print('Adding attention layer in G at resolution %d' % res)
-                blocks += [M.Attention(c_out, which_conv=conv)]
+                blocks_decoder += [M.Attention(c_out, which_conv=conv)]
+            i += 1
     
-        self.blocks = nn.ModuleList(blocks)
+        self.blocks_decoder = nn.ModuleList(blocks_decoder)
+        blocks_decoder.append(M.DBlock(3,c_out,which_conv=conv,wide=True,activation=activation, preactivation=True,downsample=None))
+        blocks_encoder.reverse()
+        self.blocks_encoder = nn.ModuleList(blocks_encoder)
 
         # output layer
         self.output_layer = nn.Sequential(nn.BatchNorm2d(self.param['convG']['out_channels'][-1]), 
@@ -65,33 +84,37 @@ class bigGANGenerator(nn.Module):
 
         self.init_weights()
 
-    def forward(self, x=None):
+    def forward(self, x):
         '''
-            input: a reference image bn, 3, H, W (partially padded with zero)
+            input: a reference image bn, 3, H, W 
             encode input + noise map, then generate from the encoded vector and a noise vector
         '''
 
+        # encoder branch
+        image_feats = [x]
+        for index, block in enumerate(self.blocks_encoder):
+            x = block(x)
+            image_feats.append(x)
+
+        # noise branch
         z = self.sampler.sample().to(self.opt.device)
-        h = z
-        
+        h = z        
         if self.linear_layer_at_first:
             h = self.linear(h)
             h = h.view(h.shape[0], -1, self.bottom_width, self.bottom_width)
 
-        # Loop over blocks
-        for index, block in enumerate(self.blocks):
-            if self.crop_index == index:
-                h = H.upsample_and_crop(h, k=4)                
-            h = block(h)
+        h = h + x
 
-        if self.crop_index == -1:
-            h = H.upsample_and_crop(h, k=4)                
+        # decoder branch
+        for index, block in enumerate(self.blocks_decoder):
+            # if self.crop_index == index:
+            #     h = H.upsample_and_crop(h, k=4)                
+            h = block(h, self.padding_func(imgae_feats[-(index+1)]))
+
+        # if self.crop_index == -1:
+        #     h = H.upsample_and_crop(h, k=4)                
             
         h = self.output_layer(h)
-
-        ###############################
-        # h = H.upsample_and_crop(h)
-        ################################
 
         return torch.tanh(h), z
 

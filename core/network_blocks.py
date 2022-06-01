@@ -48,11 +48,11 @@ class GBlock(nn.Module):
     # upsample layers
     self.upsample = upsample
 
-  def forward(self, x):
+  def forward(self, x, y=None):
     h = self.activation(self.bn1(x))
     if self.upsample:
       h = self.upsample(h)
-      x = self.upsample(x)
+      x = self.upsample(x)      
     h = self.conv1(h)
     h = self.activation(self.bn2(h))
     h = self.conv2(h)
