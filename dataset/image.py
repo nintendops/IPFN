@@ -230,8 +230,8 @@ class TerrainImageDataset(Dataset):
 
     def center_cropping(self, img):
         h, w = img.shape[-2:]
-        hc = int(1/self.scale_factor * h)
-        wc = int(1/self.scale_factor * w)
+        hc = int(self.opt.model.portion * h)
+        wc = int(self.opt.model.portion * w)
         return img[:, h//2 - hc//2:h//2 + hc//2, w//2 - wc//2:w//2 + wc//2]
 
     def _load_img(self, idx, mode='crop'):
