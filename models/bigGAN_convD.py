@@ -43,9 +43,10 @@ class bigGANDiscriminator(nn.Module):
                                 downsample=downsample_func)]
 
             # attention layer
-            if self.param['convD']['attention'][res]:
-                print('Adding attention layer in D at resolution %d' % res)
-                blocks += [M.Attention(c_out, which_conv=conv)]
+            # if self.param['convD']['attention'][res]:
+            #     print('Adding attention layer in D at resolution %d' % res)
+            #     blocks += [M.Attention(c_out, which_conv=conv)]
+
             i += 1
     
         self.blocks = nn.ModuleList(blocks)

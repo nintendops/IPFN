@@ -223,6 +223,8 @@ class ProceduralTrainer(BasicTrainer):
             self.visuals = {'train_real': V.tensor_to_visual(data_real[:,:3]), 
                             'train_ref_recon': V.tensor_to_visual(p_recon[:,:3]), 
                             'train_ref_original': V.tensor_to_visual(data_ref_original[:,:3]),
+                            'train_ref_input': V.tensor_to_visual(data_ref[:,:3]),
+
             }
 
             self.losses = {                

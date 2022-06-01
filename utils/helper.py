@@ -25,6 +25,12 @@ def upsample_and_crop(z, p=2, k=1):
     return z.contiguous()
 
 
+def add_padding(x):
+    # zero padding by default
+    h, w = x.shape[-2:]
+    x = F.pad(x, (h//2,h//2,w//2,w//2), mode='constant')
+    return x
+
 def exp_distribution(x, sigma=0.05):
     # maps a random distribution in [-1,1] to be biased towards the boundaries
     sign = torch.randint(2,x.shape).float().to(x.device)

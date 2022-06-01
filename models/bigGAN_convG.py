@@ -21,9 +21,8 @@ class bigGANGenerator(nn.Module):
         self.linear_layer_at_first = True
         self.crop_index = 0
         
-        self.padding_func = None
-        # self.downsample_func = nn.AvgPool2d(2)
-
+        self.padding_func = H.add_padding
+        self.downsample_func = nn.AvgPool2d(int(1/self.opt.model.portion))
         
         # random variable generator
         if self.linear_layer_at_first:
@@ -45,6 +44,7 @@ class bigGANGenerator(nn.Module):
         blocks_decoder = []
         blocks_encoder = []
         i = 0
+        self.skip_index = []
 
         for c_in, c_out, upsample, res in zip( self.param['convG']['in_channels'],
                                                self.param['convG']['out_channels'],
@@ -66,14 +66,18 @@ class bigGANGenerator(nn.Module):
 
             blocks_decoder += [ M.GBlock(c_in, c_out, which_conv=conv, which_bn=bn, upsample=upsample_func)]
 
+            self.skip_index += [i]
+
             # attention layer
             if self.param['convG']['attention'][res]:
                 print('Adding attention layer in G at resolution %d' % res)
                 blocks_decoder += [M.Attention(c_out, which_conv=conv)]
+                self.skip_index += [-1]
+
             i += 1
-    
+
         self.blocks_decoder = nn.ModuleList(blocks_decoder)
-        blocks_decoder.append(M.DBlock(3,c_out,which_conv=conv,wide=True,activation=activation, preactivation=True,downsample=None))
+        blocks_encoder.append(M.DBlock(3,c_out,which_conv=conv,wide=True,activation=activation, preactivation=True,downsample=None))
         blocks_encoder.reverse()
         self.blocks_encoder = nn.ModuleList(blocks_encoder)
 
@@ -108,11 +112,13 @@ class bigGANGenerator(nn.Module):
         # decoder branch
         for index, block in enumerate(self.blocks_decoder):
             # if self.crop_index == index:
-            #     h = H.upsample_and_crop(h, k=4)                
-            h = block(h, self.padding_func(imgae_feats[-(index+1)]))
+            #     h = H.upsample_and_crop(h, k=4)    
 
-        # if self.crop_index == -1:
-        #     h = H.upsample_and_crop(h, k=4)                
+            if self.skip_index[index] > 0:           
+                y = self.downsample_func(self.padding_func(image_feats[-(self.skip_index[index]+2)]))
+                h = block(h) + y
+            else:
+                h = block(h)
             
         h = self.output_layer(h)
 

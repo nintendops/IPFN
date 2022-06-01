@@ -48,16 +48,20 @@ class GBlock(nn.Module):
     # upsample layers
     self.upsample = upsample
 
-  def forward(self, x, y=None):
+  def forward(self, x):
     h = self.activation(self.bn1(x))
     if self.upsample:
       h = self.upsample(h)
       x = self.upsample(x)      
+
+
     h = self.conv1(h)
     h = self.activation(self.bn2(h))
     h = self.conv2(h)
+
     if self.learnable_sc:       
       x = self.conv_sc(x)
+
     return h + x
 
 # Residual block for the discriminator

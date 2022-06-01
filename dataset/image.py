@@ -141,6 +141,7 @@ class TerrainImageDataset(Dataset):
         super(TerrainImageDataset, self).__init__()
         
         self.opt = opt
+        self.scale_factor = 1 / opt.model.portion
         self.bs = opt.batch_size
         self.dataset_mode = opt.run_mode
 
@@ -176,7 +177,9 @@ class TerrainImageDataset(Dataset):
     def _get_cropped_size(self):
         return self.crop_res
 
-    def initialize_transform(self):              
+    def initialize_transform(self):          
+
+
         self.transforms = transforms.Compose([
             transforms.ToPILImage(),
             transforms.Resize([self.default_h,self.default_w]),
@@ -191,8 +194,8 @@ class TerrainImageDataset(Dataset):
         self.transforms_original = transforms.Compose([
             transforms.ToPILImage(),
             transforms.Resize([self.default_h,self.default_w]),
-            # transforms.RandomCrop(self.crop_res),
-            # transforms.CenterCrop(self.crop_res),
+            transforms.RandomCrop(int(self.crop_res * self.scale_factor)),
+            # transforms.CenterCrop(int(self.crop_res * self.scale_factor)),
             # transforms.RandomHorizontalFlip(p=0.5),
             # transforms.RandomVerticalFlip(p=0.5),
             transforms.ToTensor(),
@@ -225,10 +228,10 @@ class TerrainImageDataset(Dataset):
         padded_img = torch.cat([img[:,:p], torch.zeros_like(img[:,p:])], 1)
         return padded_img
 
-    def center_cropping(self, img, scale_factor=0.5):
+    def center_cropping(self, img):
         h, w = img.shape[-2:]
-        hc = int(scale_factor * h)
-        wc = int(scale_factor * w)
+        hc = int(1/self.scale_factor * h)
+        wc = int(1/self.scale_factor * w)
         return img[:, h//2 - hc//2:h//2 + hc//2, w//2 - wc//2:w//2 + wc//2]
 
     def _load_img(self, idx, mode='crop'):
@@ -250,7 +253,6 @@ class TerrainImageDataset(Dataset):
         
         real_img = self._load_img(idx)
         ref_img = self._load_img(self.ref_idx, mode='original')        
-        
         # ref_img_padded = self.zero_padding(ref_img)
         ref_img_padded = self.center_cropping(ref_img)
         return real_img, ref_img, ref_img_padded
