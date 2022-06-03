@@ -182,7 +182,8 @@ class TerrainImageDataset(Dataset):
 
         self.transforms = transforms.Compose([
             transforms.ToPILImage(),
-            transforms.Resize([self.default_h,self.default_w]),
+            transforms.Resize([int(self.opt.model.portion * self.default_h),
+                               int(self.opt.model.portion * self.default_w)]),
             transforms.RandomCrop(self.crop_res),
             # transforms.CenterCrop(self.crop_res),
             # transforms.RandomHorizontalFlip(p=0.5),
@@ -247,7 +248,7 @@ class TerrainImageDataset(Dataset):
     def __getitem__(self, idx):
 
         ############################
-        idx = 0
+        # idx = 0
         self.ref_idx = idx
         ############################
         

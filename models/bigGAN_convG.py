@@ -95,6 +95,8 @@ class bigGANGenerator(nn.Module):
         '''
 
         # encoder branch
+        nb = x.shape[0]
+        
         image_feats = [x]
         for index, block in enumerate(self.blocks_encoder):
             x = block(x)
@@ -102,7 +104,8 @@ class bigGANGenerator(nn.Module):
 
         # noise branch
         z = self.sampler.sample().to(self.opt.device)
-        h = z        
+        h = z[:nb]
+        
         if self.linear_layer_at_first:
             h = self.linear(h)
             h = h.view(h.shape[0], -1, self.bottom_width, self.bottom_width)
