@@ -284,9 +284,29 @@ class ProceduralTrainer(BasicTrainer):
 
         '''
         # save path
+
         image_path = os.path.join(os.path.dirname(self.root_dir), 'visuals')
         os.makedirs(image_path,exist_ok=True)
         self.logger.log('Testing', f"Saving output to {image_path}!!!")
 
         with torch.no_grad():
-            pass
+            countdown = 5
+            for i in range(countdown):
+                self.vis.yell(f"Getting ready to test! Start in {5-i}...")
+                time.sleep(1)
+
+
+            for i in range(100):
+                data = next(self.dataset_iter)
+                data_real, data_ref_original, data_ref = data
+
+                g_in = data_ref.to(self.opt.device)            
+                p_recon, z = self.modelG(g_in)
+
+                self.visuals = {'eval_input': V.tensor_to_visual(data_ref[:,:3]), 
+                                'eval_recon': V.tensor_to_visual(p_recon[:,:3]), 
+                                'eval_gt': V.tensor_to_visual(data_ref_original[:,:3]),
+                                }
+
+                self.vis.display_current_results(self.visuals)
+                time.sleep(1)
