@@ -110,7 +110,7 @@ class bigGANGenerator(nn.Module):
             h = self.linear(h)
             h = h.view(h.shape[0], -1, self.bottom_width, self.bottom_width)
 
-        h = h + x
+        h = h + self.downsample_func(self.padding_func(x))
 
         # decoder branch
         for index, block in enumerate(self.blocks_decoder):

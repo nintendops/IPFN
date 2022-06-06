@@ -217,7 +217,7 @@ class TerrainImageDataset(Dataset):
         if self.dataset_mode == 'train':
             samples = samples * self.opt.dataset.repeat  
         else:
-            samples = samples 
+            samples = samples * self.opt.dataset.repeat
 
         print("DATASET SAMPLES LOADED. LENGTH: ", len(samples))
         return samples
@@ -247,13 +247,23 @@ class TerrainImageDataset(Dataset):
 
     def __getitem__(self, idx):
 
+        self.ref_idx = idx
         ############################
         # idx = 0
-        self.ref_idx = idx
+        # self.ref_idx = 1
         ############################
         
         real_img = self._load_img(idx)
-        ref_img = self._load_img(self.ref_idx, mode='original')        
+        ref_img = self._load_img(self.ref_idx, mode='original')
+
+        ############################################
+        # top = 64
+        # left = min(idx * 4, self.default_size - int(self.crop_res * self.scale_factor))
+        # x = ref_img
+        # x = transforms.functional.crop(x, top, left, int(self.crop_res * self.scale_factor), int(self.crop_res * self.scale_factor))
+        # ref_img = x
+        ###########################################
+        
         # ref_img_padded = self.zero_padding(ref_img)
         ref_img_padded = self.center_cropping(ref_img)
         return real_img, ref_img, ref_img_padded
