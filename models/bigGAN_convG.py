@@ -125,7 +125,9 @@ class bigGANGenerator(nn.Module):
             
         h = self.output_layer(h)
 
-        return torch.tanh(h), z
+        h = torch.tanh(h) + self.downsample_func(self.padding_func(image_feats[0]))
+        
+        return h , z
 
       # Initialize
     def init_weights(self):

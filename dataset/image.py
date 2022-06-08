@@ -253,7 +253,7 @@ class TerrainImageDataset(Dataset):
         # self.ref_idx = 1
         ############################
         
-        real_img = self._load_img(idx)
+        # real_img = self._load_img(idx)
         ref_img = self._load_img(self.ref_idx, mode='original')
 
         ############################################
@@ -266,4 +266,10 @@ class TerrainImageDataset(Dataset):
         
         # ref_img_padded = self.zero_padding(ref_img)
         ref_img_padded = self.center_cropping(ref_img)
+
+        ######################################
+        real_img = transforms.functional.resize(ref_img, (self.crop_res, self.crop_res))
+        ####################################
+        
+        
         return real_img, ref_img, ref_img_padded
