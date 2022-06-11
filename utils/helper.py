@@ -25,10 +25,10 @@ def upsample_and_crop(z, p=2, k=1):
     return z.contiguous()
 
 
-def add_padding(x):
+def add_padding(x, mode='constant'):
     # zero padding by default
     h, w = x.shape[-2:]
-    x = F.pad(x, (h//2,h//2,w//2,w//2), mode='constant')
+    x = F.pad(x, (h//2,h//2,w//2,w//2), mode=mode)
     return x
 
 def exp_distribution(x, sigma=0.05):

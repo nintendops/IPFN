@@ -16,7 +16,7 @@ exp_args.add_argument('-s', '--seed', type=int, default=666, help='random seed')
 net_args = parser.add_parser("model")
 net_args.add_argument('--input-type', type=str, default='2d',help=' 2d | 3d, which corresponds to either an image or a volume')
 net_args.add_argument('--crop-res', type=float, default=256, help='either a scale or an integer, defining the size of the cropped patches')
-net_args.add_argument('--source-scale', type=float, default=0.1, help='downsampling scale of the input')
+net_args.add_argument('--source-scale', type=float, default=0.2, help='downsampling scale of the input')
 net_args.add_argument('--channel-dim', type=int, default=-1, help='number of channels in the input image (image default to 3, volume default to 1')
 net_args.add_argument('--latent-dim', type=int, default=64)
 net_args.add_argument('--noise', type=str, default='stationary',

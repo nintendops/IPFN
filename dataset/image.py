@@ -195,7 +195,7 @@ class TerrainImageDataset(Dataset):
         self.transforms_original = transforms.Compose([
             transforms.ToPILImage(),
             transforms.Resize([self.default_h,self.default_w]),
-            transforms.RandomCrop(int(self.crop_res * self.scale_factor)),
+            transforms.RandomCrop(self.crop_res),
             # transforms.CenterCrop(int(self.crop_res * self.scale_factor)),
             # transforms.RandomHorizontalFlip(p=0.5),
             # transforms.RandomVerticalFlip(p=0.5),
@@ -254,7 +254,7 @@ class TerrainImageDataset(Dataset):
         ############################
         
         # real_img = self._load_img(idx)
-        ref_img = self._load_img(self.ref_idx)
+        ref_img = self._load_img(self.ref_idx, mode='original')
 
         ############################################
         # top = 64

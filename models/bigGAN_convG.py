@@ -45,7 +45,7 @@ class bigGANGenerator(nn.Module):
         blocks_encoder = []
         i = 0
 
-        self.skip_index = [-1]
+        self.skip_index = []
         self.skip_func = lambda x: self.padding_func(x) # self.downsample_func(self.padding_func(x))
 
         for c_in, c_out, upsample, res in zip( self.param['convG']['in_channels'],
@@ -66,8 +66,8 @@ class bigGANGenerator(nn.Module):
                                     activation = activation,
                                     preactivation = False,
                                     downsample=downsample_func)]
-                self.skip_index += [i]
-                blocks_decoder += [ M.GBlock(c_in, c_out, which_conv=conv, which_bn=bn, upsample=upsample_func)]
+            self.skip_index += [i+1]
+            blocks_decoder += [ M.GBlock(c_in, c_out, which_conv=conv, which_bn=bn, upsample=upsample_func)]
 
 
             # attention layer
@@ -113,7 +113,7 @@ class bigGANGenerator(nn.Module):
             h = self.linear(h)
             h = h.view(h.shape[0], -1, self.bottom_width, self.bottom_width)
 
-        h = h + self.skip_func(x)
+        h = h # + self.skip_func(x)
 
         # decoder branch
         for index, block in enumerate(self.blocks_decoder):
@@ -127,7 +127,6 @@ class bigGANGenerator(nn.Module):
                 h = block(h)
             
         h = self.output_layer(h)
-
         h = torch.tanh(h) + self.skip_func(image_feats[0])
         
         return h , z
