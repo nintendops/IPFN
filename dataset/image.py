@@ -11,8 +11,6 @@ from PIL import Image
 import cv2
 import parse 
 
-# def exp_distribution(x, sigma=0.05):
-#     return 1 - np.exp(-x**2 / sigma)
 
 
 class TextureImageDataset(Dataset):
@@ -52,7 +50,7 @@ class TextureImageDataset(Dataset):
         return self.dataset_length
 
     def _get_original_size(self):
-        return [self.default_w, self.default_h]
+        return [self.default_h, self.default_w]
 
     def _get_cropped_size(self):
         return self.crop_res
@@ -83,11 +81,44 @@ class TextureImageDataset(Dataset):
 
         self.transform_type = transform_type
 
+    def weighted_crop(self, x, upscale_factor=4):
+        def exp_distribution(x, sigma=0.05):
+            return 1 - np.exp(-x**2 / sigma)
+        top, left = np.random.rand(2) 
+        sign_t, sign_l = np.random.randint(0,2,2)
+
+        x = transforms.functional.resize(x,[upscale_factor * self.default_h, upscale_factor * self.default_w])
+
+        if self.default_h <= self.default_size:
+            top = 0
+        elif sign_t == 0:
+            top = int((1 - exp_distribution(top, self.sample_sigma)) * upscale_factor * (self.default_h - self.default_size) / 2)
+        else:
+            top = int((exp_distribution(top, self.sample_sigma)+1) * upscale_factor * (self.default_h - self.default_size) / 2)
+
+        left = np.random.randint(0, upscale_factor * (self.default_w - self.default_size),1)[0] if self.default_w > self.default_size else 0
+        
+        # if self.default_w <= self.global_res:
+        #     left = 0
+        # elif sign_l == 0:
+        #     left = int((1 - exp_distribution(left, self.sample_sigma))* (self.default_w - self.global_res) / 2)
+        # else:
+        #     left = int(exp_distribution(left, self.sample_sigma)*(self.default_w - self.global_res))
+
+        x = transforms.functional.crop(x, top, left, upscale_factor * self.global_res, upscale_factor * self.global_res)
+        x = transforms.functional.resize(x, [self.image_res, self.image_res])
+        return x, torch.from_numpy(np.array([top/upscale_factor,left/upscale_factor], dtype=np.float32))
+
+
     def crop(self, x):
         top = np.random.randint(0,self.default_h - self.crop_res,1)[0] if self.default_h > self.crop_res else 0
         left = np.random.randint(0,self.default_w - self.crop_res,1)[0] if self.default_w > self.crop_res else 0
         x = transforms.functional.crop(x, top, left, self.crop_res, self.crop_res)
         # x = transforms.functional.resize(x, [self.image_res, self.image_res])
+
+        # # normalization to [0, 1]
+        # top = top / self.default_h
+        # left = left / self.default_w
         return x, torch.from_numpy(np.array([top,left], dtype=np.float32))
 
     def get_samples(self):

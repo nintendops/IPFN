@@ -242,7 +242,7 @@ def stationary_noise(positions, feature, mode='gaussian',sigma=0.2):
         dists = torch.cat([dist1,dist2,dist3,dist4], 3)
         dists = torch.nn.functional.softmax(-dists/sigma, -1).unsqueeze(1)
         return torch.sum(dists * f_grouped, -1)
-    elif mode == 'bilinear':
+    elif mode == 'bilinear' or mode == 'linear':
         tr,tl,br,bl = [batched_index_select_2d(index, feature)\
                     for index in [index_1,index_3,index_4,index_2]]
         bx = x1.unsqueeze(1) * bl + x2.unsqueeze(1) * br

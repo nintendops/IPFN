@@ -47,7 +47,7 @@ class IPFNTrainer(BasicTrainer):
             self.guidance = None
         self.ifconditional = self.guidance is not None
         if self.ifconditional:
-            self.opt.model.guidance_channel = self.guidance._get_channel()
+            self.opt.model.guidance_channel = self.guidance._channel
 
     def _get_summary(self):
         return ['LossD', 'LossG', 'Gradient Norm']        
@@ -81,8 +81,15 @@ class IPFNTrainer(BasicTrainer):
         self.dist_shift = self._get_dist_shift()
 
         # settings for conditional model
-        if self.ifconditional:
-            self.opt.shift_factor = self.scale_factor   
+        if self.ifconditional:      
+            if self.opt.model.guidance_feature_type == 'x':
+                self.opt.shift_factor = self.original_size[1] / self.crop_size - 1
+                self.scale_factor = self.original_size[1] / self.crop_size
+            elif self.opt.model.guidance_feature_type == 'y':
+                self.opt.shift_factor = self.original_size[0] / self.crop_size - 1
+                self.scale_factor = self.original_size[0] / self.crop_size
+            else:
+                self.opt.shift_factor = self.scale_factor 
 
         self.dataest_size = len(dataset)
         self.n_iters = self.dataest_size / self.opt.batch_size
@@ -227,8 +234,11 @@ class IPFNTrainer(BasicTrainer):
 
             # conditional model
             if self.ifconditional:
-                guidance_real = self.guidance.compute(data_patch, gu, self.size_info)
-                data_patch = torch.cat([data_patch, guidance_real.to(self.opt.device)], 1)
+                gu_grid = H.get_position((self.crop_size, self.crop_size),2,self.opt.device,self.opt.batch_size)
+                gu_grid = (gu_grid + 1) * self.crop_size / 2     
+                gu_grid = gu_grid + gu[...,None,None].to(self.opt.device)
+                guidance_real = self.guidance.compute(data_patch, gu_grid, self.size_info)
+                data_patch = torch.cat([data_patch, guidance_real], 1)
 
             real_data = Variable(data_patch)
             D_real = self.modelD(real_data)
@@ -237,8 +247,13 @@ class IPFNTrainer(BasicTrainer):
 
             # fake data
             g_in = H._get_input(self.crop_size, self.dist_shift, self.opt)
+
             if self.ifconditional:
-                guidance_fake = self.guidance.compute(None, g_in, [0,self.scale_factor,self.scale_factor])
+                guidance_fake = self.guidance.compute(None, 
+                                                      g_in + 1 + self.opt.shift_factor, 
+                                                      [ 0,
+                                                        2 * self.original_size[0] / self.crop_size,
+                                                        2 * self.original_size[1] / self.crop_size])
                 g_in = torch.cat([g_in, guidance_fake.to(self.opt.device)],1)
 
             fake, _ = self.modelG(g_in, noise_factor=self.opt.model.noise_factor)
@@ -283,8 +298,12 @@ class IPFNTrainer(BasicTrainer):
                 # eval: synthesize a larger texture (4x scale)
                 if self.ifconditional:
                     g_in = H._get_input(self.crop_size * self.scale_factor, self.dist_shift, self.opt, scale=self.scale_factor, shift=0.0)
-                    guidance_fake = self.guidance.compute(None, g_in, [0,self.scale_factor,self.scale_factor])
-                    g_in = torch.cat([g_in, guidance_fake.to(self.opt.device)],1)
+                    guidance_fake_global = self.guidance.compute(None, 
+                                                      g_in + 1 + self.opt.shift_factor, 
+                                                      [ 0,
+                                                        2 * self.original_size[0] / self.crop_size,
+                                                        2 * self.original_size[1] / self.crop_size])
+                    g_in = torch.cat([g_in, guidance_fake_global.to(self.opt.device)],1)
                 else:
                     g_in = H._get_input(self.crop_size * 4.0, self.dist_shift, self.opt, scale=4.0)
                 global_recon, global_z = self.modelG(g_in, noise_factor=self.opt.model.noise_factor)
@@ -302,6 +321,7 @@ class IPFNTrainer(BasicTrainer):
             if self.ifconditional:
                 self.visuals['guidance_real'] = V.tensor_to_visual(guidance_real)
                 self.visuals['guidance_fake'] = V.tensor_to_visual(guidance_fake)
+                self.visuals['guidance_fake_global'] = V.tensor_to_visual(guidance_fake_global)
 
             self.losses = {                
                     'LossG': G_cost.item(),
@@ -324,7 +344,6 @@ class IPFNTrainer(BasicTrainer):
                 if hasattr(self, 'losses'):
                     counter_ratio = it / self.n_iters
                     self.vis.plot_current_losses(i, counter_ratio, self.losses)
-
         if i > 0 and i % self.opt.save_freq == 0:
             # self.test()
             self._save_network(f'Epoch{i}')
@@ -380,8 +399,10 @@ class IPFNTrainer(BasicTrainer):
 
         with torch.no_grad():
 
-            self.crop_size *= self.opt.test_scale
-            self.scale_factor = self.opt.test_scale
+            # self.crop_size *= self.opt.test_scale
+            
+            if not self.ifconditional:
+                self.scale_factor = self.opt.test_scale
 
             countdown = 5
             for i in range(countdown):
@@ -405,14 +426,18 @@ class IPFNTrainer(BasicTrainer):
             # io.write_gif(os.path.join(image_path, 'sample_zoom.gif'), zoom_images)
             # import ipdb; ipdb.set_trace()
 
+            # default eval setting: synthesize random sample
             self.vis.yell(f"Random synthesized pattern at {self.scale_factor}X size!")
-            sample = 10
-
+            sample = 50
             for i in range(sample):
-
                 if self.ifconditional:
-                    g_in = H._get_input(self.crop_size, self.dist_shift, self.opt, scale=self.scale_factor, shift=0.0)
-                    guidance_fake = self.guidance.compute(None, g_in, [0,self.scale_factor,self.scale_factor])
+                    g_in = H._get_input(self.crop_size * self.scale_factor, self.dist_shift, self.opt, scale=self.scale_factor, shift=0.0)
+
+                    guidance_fake = self.guidance.compute(None, 
+                                                          g_in + 1 + self.opt.shift_factor, 
+                                                          [ 0,
+                                                            2 * self.original_size[0] / self.crop_size,
+                                                            2 * self.original_size[1] / self.crop_size])
                     g_in = torch.cat([g_in, guidance_fake.to(self.opt.device)],1)
                 else:
                     g_in = H._get_input(self.crop_size, self.dist_shift, self.opt, scale=self.scale_factor)
@@ -422,6 +447,10 @@ class IPFNTrainer(BasicTrainer):
                                 'generated image': V.tensor_to_visual(recon),\
                                 'noise_visual': V.tensor_to_visual(z[:,:3]),
                 }
+
+                if self.ifconditional:
+                    self.visuals['guidance'] = V.tensor_to_visual(guidance_fake)
+
                 self.vis.display_current_results(self.visuals)
                 
                 filename = f"sample_{self.scale_factor}x_idx{i}.png"

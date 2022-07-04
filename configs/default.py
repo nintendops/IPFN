@@ -16,7 +16,7 @@ exp_args.add_argument('-s', '--seed', type=int, default=666, help='random seed')
 net_args = parser.add_parser("model")
 net_args.add_argument('--input-type', type=str, default='2d',help=' 2d | 3d, which corresponds to either an image or a volume')
 net_args.add_argument('--crop-res', type=float, default=128, help='either a scale or an integer, defining the size of the cropped patches')
-net_args.add_argument('--source-scale', type=float, default=1.0, help='downsampling scale of the input')
+# net_args.add_argument('--source-scale', type=float, default=1.0, help='downsampling scale of the input')
 net_args.add_argument('--channel-dim', type=int, default=-1, help='number of channels in the input image (image default to 3, volume default to 1')
 net_args.add_argument('--latent-dim', type=int, default=10)
 net_args.add_argument('--noise', type=str, default='stationary',
@@ -55,7 +55,7 @@ train_args.add_argument('--critic-steps', type=int, default=5,
                         help='steps to train discriminator per iteration')
 train_args.add_argument('--g-steps', type=int, default=5,
                         help='steps to train generator per iteration')
-train_args.add_argument('-b', '--batch-size', type=int, default=8,
+train_args.add_argument('-b', '--batch-size', type=int, default=4,
                         help='batch size to train')
 train_args.add_argument('--num-thread', default=8, type=int,
                         help='number of threads for loading data')
@@ -92,7 +92,7 @@ loss_args.add_argument('--loss-type', type=str, default='soft',
 
 # Eval arguments
 eval_args = parser.add_parser("eval")
-eval_args.add_argument('--test-scale', type=float, default=16.0, help="scale for the synthesized pattern during inference")
+eval_args.add_argument('--test-scale', type=float, default=4.0, help="scale for the synthesized pattern during inference")
 
 # Test arguments
 test_args = parser.add_parser("test")
