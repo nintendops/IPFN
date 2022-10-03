@@ -18,7 +18,7 @@ class HierarchyArgmentParser():
         return args
 
     def parse_args(self):
-        opt_all, _ = self.parser.parse_known_args()
+        opt_all, _ = self.parser.parse_known_args("")
         for name, parser in self.parser_list.items():
             opt, _ = parser.parse_known_args()
             if name in self.flatten_args:

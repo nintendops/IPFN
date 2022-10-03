@@ -15,7 +15,7 @@ class Trainer():
         super(Trainer, self).__init__()
 
         opt_dict = dump_args(opt)
-        self.check_opt(opt)
+        self.set_device(opt)
 
         # set random seed
         random.seed(self.opt.seed)
@@ -32,10 +32,10 @@ class Trainer():
         os.makedirs(self.root_dir, exist_ok=True)
 
         # saving opt
-        opt_path = os.path.join(self.root_dir, 'opt.txt')
-        # TODO: hierarchical args are not compatible wit json dump
-        with open(opt_path, 'w') as fout:
-            json.dump(opt_dict, fout, indent=2)
+        # opt_path = os.path.join(self.root_dir, 'opt.txt')
+        # # TODO: hierarchical args are not compatible wit json dump
+        # with open(opt_path, 'w') as fout:
+        #     json.dump(opt_dict, fout, indent=2)
 
         # create logger
         log_path = os.path.join(self.root_dir, 'log.txt')
@@ -120,11 +120,12 @@ class Trainer():
             if i > 0 and i % self.opt.save_freq == 0:
                 self._save_network(f'Epoch{i}')
 
-
-    # TODO: check that the options have the required key collection
-    def check_opt(self, opt, print_opt=True):
+    def set_device(self, opt):
         self.opt = opt
-        self.opt.device = torch.device('cuda')
+        if opt.gpu_id >= 0:
+            self.opt.device = torch.device(f'cuda:{opt.gpu_id}')
+        else:
+            self.opt.device = torch.device('cuda')
 
     def _print_running_stats(self, step):
         stats = self.summary.get()
@@ -152,7 +153,7 @@ class Trainer():
         raise NotImplementedError('Not implemented')
 
     def _setup_model_multi_gpu(self):
-        if torch.cuda.device_count() > 1:
+        if self.opt.gpu_id < 0 and torch.cuda.device_count() > 1:
             self.logger.log('Setup', 'Using Multi-gpu and DataParallel!')
             self._use_multi_gpu = True
             self.model = nn.DataParallel(self.model)

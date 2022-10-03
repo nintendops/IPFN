@@ -121,7 +121,7 @@ def load_image(path, res=None):
     return image
 
 
-def process_args(opt):
+def process_args(opt, config=None):
     if opt.model.input_type == '2d':
         opt.model.image_dim = 2
         if opt.model.channel_dim < 0:
@@ -134,6 +134,14 @@ def process_args(opt):
             opt.model.channel_dim = 1 
     if opt.run_mode != 'train':
         opt.batch_size = 1
+    
+    if config is not None:
+        for k,v in config.items():
+            if isinstance(v, dict):
+                for k1, v1 in v.items():
+                    setattr(getattr(opt, k),k1, v1)
+            else:
+                setattr(opt, k, v)        
     return opt
 
 

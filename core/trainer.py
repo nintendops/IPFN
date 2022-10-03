@@ -106,7 +106,7 @@ class IPFNTrainer(BasicTrainer):
         if self.opt.run_mode == 'train':
             param_outfile = os.path.join(self.root_dir, "params.json")
         else:
-            param_outfile = None
+            param_outfile = Noneopt.gpu_id
         module = import_module('models')
         print(f"Using network model {self.modelG}!")
         self.model = getattr(module, self.modelG).build_model_from(self.opt, param_outfile)
@@ -133,19 +133,20 @@ class IPFNTrainer(BasicTrainer):
 
 
     def _setup_model_multi_gpu(self):
-        if torch.cuda.device_count() > 1:
+        if self.opt.gpu_id < 0 and torch.cuda.device_count() > 1:
             self.logger.log('Setup', 'Using Multi-gpu and DataParallel!')
             self._use_multi_gpu = True
             self.modelG = nn.DataParallel(self.modelG)
+            self.modelD = nn.DataParallel(self.modelD)
         else:
             self.logger.log('Setup', 'Using Single-gpu!')
             self._use_multi_gpu = False
 
     def _save_network(self, step, label=None):
         label = self.opt.experiment_id if label is None else label
-        save_filename_netG = '%s_netG_%s.pth' % (label, step)
+        save_filename_netG = '%s_netG_%s_latest.pth' % (label, step%5)
         save_path_netG = os.path.join(self.root_dir, 'ckpt', save_filename_netG)
-        save_filename_netD = '%s_netD_%s.pth' % (label, step)
+        save_filename_netD = '%s_netD_%s_latest.pth' % (label, step%5)
         save_path_netD = os.path.join(self.root_dir, 'ckpt', save_filename_netD)
 
         if self._use_multi_gpu:
@@ -186,8 +187,9 @@ class IPFNTrainer(BasicTrainer):
         self.logger.log('Setup', f'Resume finished! Great!')
 
 
-    def train_epoch(self):
-        while self.epoch_counter <= self.opt.num_epochs:
+    def train_epoch(self, num_epochs=None):
+        num_epochs = self.opt.num_epochs if num_epochs is None else num_epochs
+        while self.epoch_counter <= num_epochs:
             try:
                 self._optimize()
                 self.iter_counter += 1
@@ -428,7 +430,7 @@ class IPFNTrainer(BasicTrainer):
 
             # default eval setting: synthesize random sample
             self.vis.yell(f"Random synthesized pattern at {self.scale_factor}X size!")
-            sample = 50
+            sample = 10
             for i in range(sample):
                 if self.ifconditional:
                     g_in = H._get_input(self.crop_size * self.scale_factor, self.dist_shift, self.opt, scale=self.scale_factor, shift=0.0)
@@ -457,13 +459,15 @@ class IPFNTrainer(BasicTrainer):
                 io.write_images(os.path.join(image_path,filename),V.tensor_to_visual(recon),1)
                 time.sleep(1)
 
-            # self.vis.yell(f"zomming test!")
-            # for i in np.arange(0.5, 2, 0.001):
-            #     recon = self.modelG(self._get_input(scale=i), True)
-            #     self.visuals = {
-            #                     'Zooming test': V.tensor_to_visual(recon),\
-            #     }
-            #     self.vis.display_current_results(self.visuals,10)
+            self.vis.yell(f"zomming test!")
+            for i in np.arange(0.5, 8, 0.01):
+                g_in = H._get_input(self.crop_size, self.dist_shift, self.opt, scale=i, shift=0.0)
+                recon, z = self.modelG(g_in, noise_factor=self.opt.model.noise_factor, fix_sample=True)
+                self.visuals = {
+                                'Zooming test': V.tensor_to_visual(recon),\
+                                'noise_visual': V.tensor_to_visual(z[:,:3]),
+                }
+                self.vis.display_current_results(self.visuals,10)
                 
 
             # self.vis.yell(f"panning test!")

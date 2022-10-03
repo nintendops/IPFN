@@ -11,8 +11,6 @@ from PIL import Image
 import cv2
 import parse 
 
-
-
 class TextureImageDataset(Dataset):
 
     def __init__(self, opt):
@@ -40,10 +38,7 @@ class TextureImageDataset(Dataset):
         else:
             self.crop_res = int(opt.model.crop_res)
 
-        #########################
         transform_type = "positioned_crop"
-        #########################
-
         self.initialize_transform(transform_type)
 
     def __len__(self):
@@ -64,9 +59,6 @@ class TextureImageDataset(Dataset):
                 transforms.Resize([self.default_h,self.default_w]),
                 transforms.ToTensor(),
                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-            ])
-            self.transforms_crop = transforms.Compose([
-                transforms.RandomCrop(self.crop_res),
             ])
         elif transform_type == 'default':
             self.transforms = transforms.Compose([
@@ -109,16 +101,10 @@ class TextureImageDataset(Dataset):
         x = transforms.functional.resize(x, [self.image_res, self.image_res])
         return x, torch.from_numpy(np.array([top/upscale_factor,left/upscale_factor], dtype=np.float32))
 
-
-    def crop(self, x):
-        top = np.random.randint(0,self.default_h - self.crop_res,1)[0] if self.default_h > self.crop_res else 0
-        left = np.random.randint(0,self.default_w - self.crop_res,1)[0] if self.default_w > self.crop_res else 0
+    def crop(self, x, det=False):
+        top = np.random.randint(0,self.default_h - self.crop_res,1)[0] if not det and self.default_h > self.crop_res else 0
+        left = np.random.randint(0,self.default_w - self.crop_res,1)[0] if not det and self.default_w > self.crop_res else 0        
         x = transforms.functional.crop(x, top, left, self.crop_res, self.crop_res)
-        # x = transforms.functional.resize(x, [self.image_res, self.image_res])
-
-        # # normalization to [0, 1]
-        # top = top / self.default_h
-        # left = left / self.default_w
         return x, torch.from_numpy(np.array([top,left], dtype=np.float32))
 
     def get_samples(self):
@@ -159,8 +145,9 @@ class TextureImageDataset(Dataset):
         file = file[:3]
 
         file_patch = self.transforms(file)
+
         if self.transform_type == 'positioned_crop':
-            file_patch, d = self.crop(file_patch)
+            file_patch, d = self.crop(file_patch, self.opt.shift_type == 'none')
 
         return file_patch, file, d #, Path(filepath).stem
 

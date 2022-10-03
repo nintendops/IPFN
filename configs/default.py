@@ -45,7 +45,7 @@ visdom_args.add_argument( '--port', type=int, default=8097)
 
 # Training arguments
 train_args = parser.add_parser("train")
-train_args.add_argument('--device', type=str, default='cuda')
+train_args.add_argument('--gpu-id', type=int, default=-1, help="index of the gpu used for training. If gpu_id < 0, use all available gpu devices")
 train_args.add_argument('--run-mode', type=str, default='train')
 train_args.add_argument('-e', '--num-epochs', type=int, default=100,
                         help='maximum number of training epochs')
