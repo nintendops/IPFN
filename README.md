@@ -1,6 +1,6 @@
 # Implicit Periodic Field Network
 
-This repository contains the code (in PyTorch) for [# IPFN: Exemplar-based Pattern Synthesis with Implicit Periodic Field Networks](https://arxiv.org/abs/2204.01671)  (CVPR'2022) by Haiwei Chen, Jiayi Liu, [Weikai Chen](http://chenweikai.github.io/), [Shichen Liu](https://shichenliu.github.io/), and [Yajie Zhao](https://www.yajie-zhao.com/).
+This repository contains the code (in PyTorch) for [IPFN: Exemplar-based Pattern Synthesis with Implicit Periodic Field Networks](https://arxiv.org/abs/2204.01671)  (CVPR'2022) by Haiwei Chen, Jiayi Liu, [Weikai Chen](http://chenweikai.github.io/), [Shichen Liu](https://shichenliu.github.io/), and [Yajie Zhao](https://www.yajie-zhao.com/).
 
 ## Introduction
 ![](https://github.com/nintendops/IPFN/blob/main/media/teaser.png)
