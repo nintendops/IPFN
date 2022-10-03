@@ -28,7 +28,7 @@ python -m pip install -r requirement
 We provide several input images, sampled from the [Describable Textures Dataset](https://www.robots.ox.ac.uk/~vgg/data/dtd/), in [the exemplar folder](https://github.com/nintendops/IPFN/blob/main/exemplars/images). 
 
 **Demo**
-We provide a simple walk through of how to train and generate texture images with our model in a [demo notebook](https://github.com/nintendops/IPFN/blob/main/demo.ipynb), where you may either choose to train a synthesizer from scratch or to utilize a pretrained model for synthesizing honeycomb image.
+We provide a simple walk through of how to train and generate texture images with our model in a [demo notebook](https://colab.research.google.com/github/nintendops/IPFN/blob/main/demo.ipynb), where you may either choose to train a synthesizer from scratch or to utilize a pretrained model for synthesizing honeycomb image.
 
 **Training**
 Training on a single examplar input can be done with the following command:
